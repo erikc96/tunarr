@@ -1,5 +1,6 @@
 import { Watermark } from '@tunarr/types';
 import dayjs from 'dayjs';
+import { StrictOmit } from 'ts-essentials';
 import { FileStreamSource } from '../../../../stream/types.ts';
 import { TUNARR_ENV_VARS } from '../../../../util/env.ts';
 import { EmptyFfmpegCapabilities } from '../../capabilities/FfmpegCapabilities.ts';
@@ -14,6 +15,7 @@ import {
   ColorRanges,
   ColorSpaces,
   ColorTransferFormats,
+  VideoFormats,
 } from '../../constants.ts';
 import { HardwareDownloadFilter } from '../../filter/HardwareDownloadFilter.ts';
 import { HardwareUploadQsvFilter } from '../../filter/qsv/HardwareUploadQsvFilter.ts';
@@ -21,8 +23,6 @@ import { QsvFormatFilter } from '../../filter/qsv/QsvFormatFilter.ts';
 import { TonemapQsvFilter } from '../../filter/qsv/TonemapQsvFilter.ts';
 import { TonemapFilter } from '../../filter/TonemapFilter.ts';
 import { OverlayWatermarkFilter } from '../../filter/watermark/OverlayWatermarkFilter.ts';
-import { WatermarkOpacityFilter } from '../../filter/watermark/WatermarkOpacityFilter.ts';
-import { WatermarkScaleFilter } from '../../filter/watermark/WatermarkScaleFilter.ts';
 import { ColorFormat } from '../../format/ColorFormat.ts';
 import {
   PixelFormatYuv420P,
@@ -36,6 +36,7 @@ import {
   StillImageStream,
   SubtitleMethods,
   VideoStream,
+  VideoStreamFields,
 } from '../../MediaStream.ts';
 import {
   DefaultPipelineOptions,
@@ -45,6 +46,103 @@ import {
 import { FrameState } from '../../state/FrameState.ts';
 import { FrameSize } from '../../types.ts';
 import { QsvPipelineBuilder } from './QsvPipelineBuilder.ts';
+
+function makeH264VideoInput() {
+  return VideoInputSource.withStream(
+    new FileStreamSource('/path/to/video.mkv'),
+    VideoStream.create({
+      codec: 'h264',
+      profile: 'main',
+      displayAspectRatio: '16:9',
+      frameSize: FrameSize.FHD,
+      index: 0,
+      pixelFormat: new PixelFormatYuv420P(),
+      // SAR 1:1 means non-anamorphic: squarePixelFrameSize(FHD) == FHD,
+      // so no scaling or padding is needed. The frame stays on hardware
+      // from the QSV decoder until the watermark path.
+      providedSampleAspectRatio: '1:1',
+      colorFormat: ColorFormat.unknown,
+    }),
+  );
+}
+
+function makeHevcVideoInput(
+  fields?: Partial<StrictOmit<VideoStreamFields, 'codec'>>,
+) {
+  return VideoInputSource.withStream(
+    new FileStreamSource('/path/to/video.mkv'),
+    VideoStream.create({
+      codec: VideoFormats.Hevc,
+      profile: 'main',
+      displayAspectRatio: '16:9',
+      frameSize: FrameSize.FHD,
+      index: 0,
+      pixelFormat: new PixelFormatYuv420P(),
+      // SAR 1:1 means non-anamorphic: squarePixelFrameSize(FHD) == FHD,
+      // so no scaling or padding is needed. The frame stays on hardware
+      // from the QSV decoder until the watermark path.
+      providedSampleAspectRatio: '1:1',
+      colorFormat: ColorFormat.unknown,
+      ...fields,
+    }),
+  );
+}
+
+function makeWatermarkSource(overrides: Partial<Watermark> = {}) {
+  return new WatermarkInputSource(
+    new FileStreamSource('/path/to/watermark.png'),
+    StillImageStream.create({
+      frameSize: FrameSize.withDimensions(100, 100),
+      index: 1,
+    }),
+    {
+      duration: 0,
+      enabled: true,
+      horizontalMargin: 5,
+      opacity: 100,
+      position: 'bottom-right',
+      verticalMargin: 5,
+      width: 10,
+      ...overrides,
+    } satisfies Watermark,
+  );
+}
+// H264 with both decode and encode capabilities — frame goes to hardware
+const fullCapabilities = new VaapiHardwareCapabilities([
+  new VaapiProfileEntrypoint(VaapiProfiles.H264Main, VaapiEntrypoint.Decode),
+  new VaapiProfileEntrypoint(VaapiProfiles.H264Main, VaapiEntrypoint.Encode),
+  new VaapiProfileEntrypoint(VaapiProfiles.HevcMain, VaapiEntrypoint.Decode),
+]);
+
+function buildPipeline(opts: {
+  videoInput?: VideoInputSource;
+  watermark?: WatermarkInputSource | null;
+  capabilities?: VaapiHardwareCapabilities;
+  pipelineOptions?: Partial<PipelineOptions>;
+}) {
+  const video = opts.videoInput ?? makeH264VideoInput();
+  const builder = new QsvPipelineBuilder(
+    opts.capabilities ?? fullCapabilities,
+    EmptyFfmpegCapabilities,
+    video,
+    null,
+    null,
+    opts.watermark ?? null,
+    null,
+  );
+  return builder.build(
+    FfmpegState.create({
+      version: { versionString: '7.1.1', isUnknown: false },
+    }),
+    new FrameState({
+      isAnamorphic: false,
+      scaledSize: video.streams[0]!.squarePixelFrameSize(FrameSize.FHD),
+      paddedSize: FrameSize.FHD,
+      pixelFormat: new PixelFormatYuv420P(),
+    }),
+    { ...DefaultPipelineOptions, ...(opts.pipelineOptions ?? {}) },
+  );
+}
 
 describe('QsvPipelineBuilder', () => {
   test('should work', () => {
@@ -762,93 +860,6 @@ describe('QsvPipelineBuilder', () => {
   });
 
   describe('watermark', () => {
-    const ffmpegVersion = {
-      versionString: 'n7.0.2-15-g0458a86656-20240904',
-      majorVersion: 7,
-      minorVersion: 0,
-      patchVersion: 2,
-      isUnknown: false,
-    } as const;
-
-    // H264 with both decode and encode capabilities — frame goes to hardware
-    const fullCapabilities = new VaapiHardwareCapabilities([
-      new VaapiProfileEntrypoint(
-        VaapiProfiles.H264Main,
-        VaapiEntrypoint.Decode,
-      ),
-      new VaapiProfileEntrypoint(
-        VaapiProfiles.H264Main,
-        VaapiEntrypoint.Encode,
-      ),
-    ]);
-
-    function makeH264VideoInput() {
-      return VideoInputSource.withStream(
-        new FileStreamSource('/path/to/video.mkv'),
-        VideoStream.create({
-          codec: 'h264',
-          profile: 'main',
-          displayAspectRatio: '16:9',
-          frameSize: FrameSize.FHD,
-          index: 0,
-          pixelFormat: new PixelFormatYuv420P(),
-          // SAR 1:1 means non-anamorphic: squarePixelFrameSize(FHD) == FHD,
-          // so no scaling or padding is needed. The frame stays on hardware
-          // from the QSV decoder until the watermark path.
-          providedSampleAspectRatio: '1:1',
-          colorFormat: ColorFormat.unknown,
-        }),
-      );
-    }
-
-    function makeWatermarkSource(overrides: Partial<Watermark> = {}) {
-      return new WatermarkInputSource(
-        new FileStreamSource('/path/to/watermark.png'),
-        StillImageStream.create({
-          frameSize: FrameSize.withDimensions(100, 100),
-          index: 1,
-        }),
-        {
-          duration: 0,
-          enabled: true,
-          horizontalMargin: 5,
-          opacity: 100,
-          position: 'bottom-right',
-          verticalMargin: 5,
-          width: 10,
-          ...overrides,
-        } satisfies Watermark,
-      );
-    }
-
-    function buildPipeline(opts: {
-      videoInput?: VideoInputSource;
-      watermark?: WatermarkInputSource | null;
-      capabilities?: VaapiHardwareCapabilities;
-      pipelineOptions?: Partial<PipelineOptions>;
-    }) {
-      const video = opts.videoInput ?? makeH264VideoInput();
-      const builder = new QsvPipelineBuilder(
-        opts.capabilities ?? fullCapabilities,
-        EmptyFfmpegCapabilities,
-        video,
-        null,
-        null,
-        opts.watermark ?? null,
-        null,
-      );
-      return builder.build(
-        FfmpegState.create({ version: ffmpegVersion }),
-        new FrameState({
-          isAnamorphic: false,
-          scaledSize: video.streams[0]!.squarePixelFrameSize(FrameSize.FHD),
-          paddedSize: FrameSize.FHD,
-          pixelFormat: new PixelFormatYuv420P(),
-        }),
-        { ...DefaultPipelineOptions, ...(opts.pipelineOptions ?? {}) },
-      );
-    }
-
     test('downloads frame from hardware before applying watermark overlay', () => {
       const pipeline = buildPipeline({ watermark: makeWatermarkSource() });
 
@@ -1150,6 +1161,112 @@ describe('QsvPipelineBuilder', () => {
         disableHardwareFilters: false,
         vaapiDevice: null,
         vaapiDriver: null,
+        vaapiPipelineOptions: null,
+      },
+    );
+    console.log(x.getCommandArgs().join(' '));
+  });
+
+  test('10-bit input, 8-bit output', async () => {
+    const builder = new QsvPipelineBuilder(
+      new VaapiHardwareCapabilities([
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.H264Main,
+          VaapiEntrypoint.Decode,
+        ),
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.H264Main,
+          VaapiEntrypoint.Encode,
+        ),
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.HevcMain,
+          VaapiEntrypoint.Decode,
+        ),
+      ]),
+      EmptyFfmpegCapabilities,
+      makeHevcVideoInput({
+        frameSize: FrameSize.withDimensions(1920, 1070),
+        pixelFormat: new PixelFormatYuv420P10Le(),
+      }),
+      null,
+      null,
+      null,
+      null,
+    );
+
+    const x = builder.build(
+      FfmpegState.create({
+        version: {
+          versionString: 'n7.1.1-56-gc2184b65d2-20250716',
+          majorVersion: 7,
+          minorVersion: 1,
+          patchVersion: 1,
+          versionDetails: '56-gc2184b65d2-20250716',
+          isUnknown: false,
+        },
+        threadCount: 0,
+        start: dayjs.duration({ minutes: 5, seconds: 19.253 }),
+        duration: dayjs.duration({ minutes: 18, seconds: 2.348 }),
+        logLevel: 'debug',
+        mapMetadata: false,
+        metadataServiceName: null,
+        metadataServiceProvider: null,
+        decoderHwAccelMode: 'none',
+        encoderHwAccelMode: 'none',
+        softwareScalingAlgorithm: 'bicubic',
+        softwareDeinterlaceFilter: 'none',
+        vaapiDevice: null,
+        vaapiDriver: null,
+        outputFormat: {
+          type: 'hls',
+          hlsOptions: {
+            hlsDeleteThreshold: 3,
+            streamNameFormat: 'stream.m3u8',
+            segmentNameFormat: 'data%06d.ts',
+            segmentBaseDirectory:
+              'C:\\Users\\plex-svc\\AppData\\Roaming\\tunarr\\streams',
+            streamBasePath: 'stream_ffe8a40c-6545-41c2-881a-988bcb8eb2b7',
+            streamBaseUrl:
+              '/stream/channels/ffe8a40c-6545-41c2-881a-988bcb8eb2b7/hls/',
+            hlsTime: 4,
+            hlsListSize: 0,
+            deleteThreshold: null,
+            appendSegments: true,
+          },
+        },
+        outputLocation: 'stdout',
+        ptsOffset: 0,
+        tonemapHdr: false,
+      }),
+      new FrameState({
+        scaledSize: FrameSize.withDimensions(1920, 1070),
+        paddedSize: FrameSize.FHD,
+        isAnamorphic: false,
+        realtime: false,
+        videoFormat: 'h264',
+        videoPreset: null,
+        videoProfile: null,
+        frameRate: null,
+        videoTrackTimescale: 90000,
+        videoBitrate: 10000,
+        videoBufferSize: 20000,
+        frameDataLocation: 'unknown',
+        deinterlace: false,
+        pixelFormat: new PixelFormatYuv420P(),
+        colorFormat: ColorFormat.bt709,
+        infiniteLoop: false,
+        forceSoftwareOverlay: false,
+      }),
+      {
+        decoderThreadCount: 0,
+        encoderThreadCount: 0,
+        filterThreadCount: null,
+        disableHardwareDecoding: false,
+        disableHardwareEncoding: false,
+        disableHardwareFilters: false,
+        vaapiDevice: null,
+        vaapiDriver: null,
+        vaapiPipelineOptions: null,
       },
     );
     console.log(x.getCommandArgs().join(' '));

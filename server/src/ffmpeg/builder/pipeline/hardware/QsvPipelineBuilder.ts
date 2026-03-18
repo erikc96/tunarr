@@ -4,7 +4,7 @@ import type { FfmpegCapabilities } from '@/ffmpeg/builder/capabilities/FfmpegCap
 import { OutputFormatTypes, VideoFormats } from '@/ffmpeg/builder/constants.js';
 import type { Decoder } from '@/ffmpeg/builder/decoder/Decoder.js';
 import { DecoderFactory } from '@/ffmpeg/builder/decoder/DecoderFactory.js';
-import { Encoder } from '@/ffmpeg/builder/encoder/Encoder.js';
+import type { Encoder } from '@/ffmpeg/builder/encoder/Encoder.js';
 import { DeinterlaceFilter } from '@/ffmpeg/builder/filter/DeinterlaceFilter.js';
 import type { FilterOption } from '@/ffmpeg/builder/filter/FilterOption.js';
 import { HardwareDownloadFilter } from '@/ffmpeg/builder/filter/HardwareDownloadFilter.js';
@@ -336,68 +336,69 @@ export class QsvPipelineBuilder extends SoftwarePipelineBuilder {
 
       const currentPixelFormat = currentState.pixelFormat;
 
-      if (
-        some(
-          this.videoInputSource.filterSteps,
-          (step) => !(step instanceof Encoder),
-        ) &&
-        currentPixelFormat
-      ) {
+      if (currentPixelFormat) {
         let needsConversion = false;
-        if (currentPixelFormat.name === PixelFormats.NV12) {
-          needsConversion =
-            currentPixelFormat.unwrap().name !== targetPixelFormat.name;
-          if (!needsConversion) {
-            currentState = currentState.update({
-              pixelFormat: targetPixelFormat,
-            });
-          }
-        } else {
-          needsConversion = currentPixelFormat.name !== targetPixelFormat.name;
+        const unwrappedCurrent =
+          currentPixelFormat.toSoftwareFormat() ?? currentPixelFormat;
+        needsConversion = unwrappedCurrent.name !== targetPixelFormat.name;
+        if (!needsConversion) {
+          currentState = currentState.update({
+            pixelFormat: targetPixelFormat,
+          });
         }
 
         if (needsConversion) {
-          const filter = new QsvFormatFilter(currentPixelFormat);
+          const filterCtor =
+            currentState.frameDataLocation === FrameDataLocation.Hardware
+              ? QsvFormatFilter
+              : PixelFormatFilter;
+          hasQsvFilter =
+            currentState.frameDataLocation === FrameDataLocation.Hardware;
+
+          const filter = new filterCtor(currentPixelFormat);
           steps.push(filter);
           currentState = filter.nextState(currentState);
 
           if (currentPixelFormat.bitDepth === 8 && this.context.is10BitOutput) {
-            const tenbitFilter = new QsvFormatFilter(new PixelFormatP010());
+            const tenbitFilter = new filterCtor(new PixelFormatP010());
             steps.push(tenbitFilter);
             currentState = tenbitFilter.nextState(currentState);
           }
-
-          hasQsvFilter = true;
         }
       }
 
-      if (hasQsvFilter) {
-        if (currentState.frameDataLocation === FrameDataLocation.Hardware) {
-          if (
-            currentState.pixelFormat?.bitDepth === 10 &&
-            pixelFormatToDownload?.name !== PixelFormats.YUV420P10LE
-          ) {
-            pixelFormatToDownload = new PixelFormatYuv420P10Le();
-            currentState = currentState.update({
-              pixelFormat: pixelFormatToDownload,
-            });
-          } else if (
-            currentState.pixelFormat?.bitDepth === 8 &&
-            pixelFormatToDownload?.name !== PixelFormats.NV12
-          ) {
-            pixelFormatToDownload = new PixelFormatNv12(pixelFormatToDownload);
-            currentState = currentState.update({
-              pixelFormat: pixelFormatToDownload,
-            });
-          }
+      // hasQsvFilter implies we're on hardware, but check anyway.
+      if (
+        hasQsvFilter &&
+        currentState.frameDataLocation === FrameDataLocation.Hardware
+      ) {
+        if (
+          currentState.pixelFormat?.bitDepth === 10 &&
+          pixelFormatToDownload?.name !== PixelFormats.P010
+        ) {
+          pixelFormatToDownload = new PixelFormatP010();
+          currentState = currentState.update({
+            pixelFormat: pixelFormatToDownload,
+          });
+        } else if (
+          currentState.pixelFormat?.bitDepth === 8 &&
+          pixelFormatToDownload?.name !== PixelFormats.NV12
+        ) {
+          pixelFormatToDownload = new PixelFormatNv12(pixelFormatToDownload);
+          currentState = currentState.update({
+            pixelFormat: pixelFormatToDownload,
+          });
         }
       }
 
+      // If we're about to encode with software and we're in hardware,
+      // we'll need to download. We shouldn't have to do any more conversions
+      // at this point
       if (
         this.ffmpegState.encoderHwAccelMode === HardwareAccelerationMode.None &&
         currentState.frameDataLocation === FrameDataLocation.Hardware
       ) {
-        pixelFormatToDownload = new PixelFormatNv12(pixelFormatToDownload);
+        // pixelFormatToDownload = new PixelFormatNv12(pixelFormatToDownload);
         const hwDownloadFilter = new HardwareDownloadFilter(
           currentState.update({ pixelFormat: pixelFormatToDownload }),
         );
@@ -405,6 +406,8 @@ export class QsvPipelineBuilder extends SoftwarePipelineBuilder {
         steps.push(hwDownloadFilter);
       }
 
+      // If we're going to encode on hardware, but we're still in software,
+      // perform the final upload.
       if (
         this.ffmpegState.encoderHwAccelMode === HardwareAccelerationMode.Qsv &&
         currentState.frameDataLocation === FrameDataLocation.Software
@@ -412,6 +415,7 @@ export class QsvPipelineBuilder extends SoftwarePipelineBuilder {
         steps.push(new HardwareUploadQsvFilter(64));
       }
 
+      // Have to figure out when this would hit.
       if (currentState.pixelFormat?.name !== targetPixelFormat.name) {
         // TODO: Handle color params
         this.pipelineSteps.push(new PixelFormatOutputOption(targetPixelFormat));
