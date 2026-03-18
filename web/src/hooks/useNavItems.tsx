@@ -1,5 +1,6 @@
 import type { router } from '@/router.ts';
 import {
+  AutoAwesome,
   Computer,
   Delete,
   Home,
@@ -91,6 +92,11 @@ export const useNavItems = () => {
         ],
       },
       {
+        name: 'AI',
+        path: '/ai',
+        icon: <AutoAwesome />,
+      },
+      {
         name: 'System',
         path: '/system',
         icon: <Computer />,
@@ -141,6 +147,11 @@ export const useNavItems = () => {
           {
             name: 'hdhr',
             path: '/settings/hdhr',
+            hidden: true,
+          },
+          {
+            name: 'ai',
+            path: '/settings/ai',
             hidden: true,
           },
         ],

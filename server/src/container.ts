@@ -43,6 +43,7 @@ import { ServicesModule } from './services/ServicesModule.ts';
 import { StartupService } from './services/StartupService.ts';
 import { SystemDevicesService } from './services/SystemDevicesService.ts';
 import { TunarrWorkerPool } from './services/TunarrWorkerPool.ts';
+import { AiModule } from './services/ai/AiModule.ts';
 import { DynamicChannelsModule } from './services/dynamic_channels/DynamicChannelsModule.ts';
 import { TimeSlotSchedulerService } from './services/scheduling/TimeSlotSchedulerService.ts';
 import { ChannelLineupMigratorStartupTask } from './services/startup/ChannelLineupMigratorStartupTask.ts';
@@ -182,5 +183,6 @@ container.load(FfmpegPipelineBuilderModule);
 container.load(DynamicChannelsModule);
 container.load(ServicesModule);
 container.load(ExternalApiModule);
+container.load(AiModule);
 
 export { container };

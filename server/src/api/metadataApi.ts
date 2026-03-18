@@ -219,11 +219,11 @@ export const metadataApiRouter: RouterPluginAsyncCallback = async (fastify) => {
         return res.status(404).send();
       }
 
-      return `${server.uri}/web/index.html#!/server/${
+      return `https://app.plex.tv/desktop/#!/server/${
         server.clientIdentifier
       }/details?key=${encodeURIComponent(
         `/library/metadata/${query.id.externalItemId}`,
-      )}&X-Plex-Token=${server.accessToken}`;
+      )}`;
     }
 
     return null;

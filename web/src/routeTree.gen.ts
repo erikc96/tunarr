@@ -14,6 +14,7 @@ import { Route as SystemRouteImport } from './routes/system';
 import { Route as SettingsRouteImport } from './routes/settings';
 import { Route as SearchRouteImport } from './routes/search';
 import { Route as GuideRouteImport } from './routes/guide';
+import { Route as AiRouteImport } from './routes/ai';
 import { Route as IndexRouteImport } from './routes/index';
 import { Route as SystemIndexRouteImport } from './routes/system/index';
 import { Route as LibraryIndexRouteImport } from './routes/library/index';
@@ -26,6 +27,7 @@ import { Route as SettingsSourcesRouteImport } from './routes/settings/sources';
 import { Route as SettingsHdhrRouteImport } from './routes/settings/hdhr';
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general';
 import { Route as SettingsFfmpegRouteImport } from './routes/settings/ffmpeg';
+import { Route as SettingsAiRouteImport } from './routes/settings/ai';
 import { Route as LibraryFillersRouteImport } from './routes/library/fillers';
 import { Route as LibraryCustomShowsRouteImport } from './routes/library/custom-shows';
 import { Route as ChannelsTestRouteImport } from './routes/channels_/test';
@@ -82,6 +84,11 @@ const SearchRoute = SearchRouteImport.update({
 const GuideRoute = GuideRouteImport.update({
   id: '/guide',
   path: '/guide',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AiRoute = AiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => rootRouteImport,
 } as any);
 const IndexRoute = IndexRouteImport.update({
@@ -142,6 +149,11 @@ const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
 const SettingsFfmpegRoute = SettingsFfmpegRouteImport.update({
   id: '/ffmpeg',
   path: '/ffmpeg',
+  getParentRoute: () => SettingsRoute,
+} as any);
+const SettingsAiRoute = SettingsAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => SettingsRoute,
 } as any);
 const LibraryFillersRoute = LibraryFillersRouteImport.update({
@@ -327,6 +339,7 @@ const ChannelsChannelIdProgrammingAddRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
+  '/ai': typeof AiRoute;
   '/guide': typeof GuideRoute;
   '/search': typeof SearchRoute;
   '/settings': typeof SettingsRouteWithChildren;
@@ -337,6 +350,7 @@ export interface FileRoutesByFullPath {
   '/channels/test': typeof ChannelsTestRoute;
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
+  '/settings/ai': typeof SettingsAiRoute;
   '/settings/ffmpeg': typeof SettingsFfmpegRoute;
   '/settings/general': typeof SettingsGeneralRoute;
   '/settings/hdhr': typeof SettingsHdhrRoute;
@@ -378,6 +392,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
+  '/ai': typeof AiRoute;
   '/guide': typeof GuideRoute;
   '/search': typeof SearchRoute;
   '/settings': typeof SettingsRouteWithChildren;
@@ -386,6 +401,7 @@ export interface FileRoutesByTo {
   '/channels/test': typeof ChannelsTestRoute;
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
+  '/settings/ai': typeof SettingsAiRoute;
   '/settings/ffmpeg': typeof SettingsFfmpegRoute;
   '/settings/general': typeof SettingsGeneralRoute;
   '/settings/hdhr': typeof SettingsHdhrRoute;
@@ -426,6 +442,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
+  '/ai': typeof AiRoute;
   '/guide': typeof GuideRoute;
   '/search': typeof SearchRoute;
   '/settings': typeof SettingsRouteWithChildren;
@@ -436,6 +453,7 @@ export interface FileRoutesById {
   '/channels_/test': typeof ChannelsTestRoute;
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
+  '/settings/ai': typeof SettingsAiRoute;
   '/settings/ffmpeg': typeof SettingsFfmpegRoute;
   '/settings/general': typeof SettingsGeneralRoute;
   '/settings/hdhr': typeof SettingsHdhrRoute;
@@ -479,6 +497,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | '/'
+    | '/ai'
     | '/guide'
     | '/search'
     | '/settings'
@@ -489,6 +508,7 @@ export interface FileRouteTypes {
     | '/channels/test'
     | '/library/custom-shows'
     | '/library/fillers'
+    | '/settings/ai'
     | '/settings/ffmpeg'
     | '/settings/general'
     | '/settings/hdhr'
@@ -530,6 +550,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | '/'
+    | '/ai'
     | '/guide'
     | '/search'
     | '/settings'
@@ -538,6 +559,7 @@ export interface FileRouteTypes {
     | '/channels/test'
     | '/library/custom-shows'
     | '/library/fillers'
+    | '/settings/ai'
     | '/settings/ffmpeg'
     | '/settings/general'
     | '/settings/hdhr'
@@ -577,6 +599,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ai'
     | '/guide'
     | '/search'
     | '/settings'
@@ -587,6 +610,7 @@ export interface FileRouteTypes {
     | '/channels_/test'
     | '/library/custom-shows'
     | '/library/fillers'
+    | '/settings/ai'
     | '/settings/ffmpeg'
     | '/settings/general'
     | '/settings/hdhr'
@@ -629,6 +653,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  AiRoute: typeof AiRoute;
   GuideRoute: typeof GuideRoute;
   SearchRoute: typeof SearchRoute;
   SettingsRoute: typeof SettingsRouteWithChildren;
@@ -688,6 +713,13 @@ declare module '@tanstack/react-router' {
       path: '/guide';
       fullPath: '/guide';
       preLoaderRoute: typeof GuideRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/ai': {
+      id: '/ai';
+      path: '/ai';
+      fullPath: '/ai';
+      preLoaderRoute: typeof AiRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/': {
@@ -772,6 +804,13 @@ declare module '@tanstack/react-router' {
       path: '/ffmpeg';
       fullPath: '/settings/ffmpeg';
       preLoaderRoute: typeof SettingsFfmpegRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    '/settings/ai': {
+      id: '/settings/ai';
+      path: '/ai';
+      fullPath: '/settings/ai';
+      preLoaderRoute: typeof SettingsAiRouteImport;
       parentRoute: typeof SettingsRoute;
     };
     '/library/fillers': {
@@ -1002,6 +1041,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface SettingsRouteChildren {
+  SettingsAiRoute: typeof SettingsAiRoute;
   SettingsFfmpegRoute: typeof SettingsFfmpegRoute;
   SettingsGeneralRoute: typeof SettingsGeneralRoute;
   SettingsHdhrRoute: typeof SettingsHdhrRoute;
@@ -1012,6 +1052,7 @@ interface SettingsRouteChildren {
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAiRoute: SettingsAiRoute,
   SettingsFfmpegRoute: SettingsFfmpegRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsHdhrRoute: SettingsHdhrRoute,
@@ -1140,6 +1181,7 @@ const LibraryFillersNewRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiRoute: AiRoute,
   GuideRoute: GuideRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,

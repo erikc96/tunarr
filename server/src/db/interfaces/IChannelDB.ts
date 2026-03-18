@@ -201,7 +201,7 @@ export type UpdateChannelLineupRequest = MarkOptional<
     | 'schedulingOperations'
     | 'pendingPrograms'
   >,
-  'version' | 'onDemandConfig' | 'items' | 'startTimeOffsets'
+  'version' | 'onDemandConfig' | 'items' | 'startTimeOffsets' | 'aiConfig'
 >;
 
 export type PageParams = {

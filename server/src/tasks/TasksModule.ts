@@ -34,6 +34,7 @@ import { RefreshMediaSourceLibraryTask } from './RefreshMediaSourceLibraryTask.t
 import { RemoveDanglingProgramsFromSearchTask } from './RemoveDanglingProgramsFromSearchTask.ts';
 import { RollLogFileTask } from './RollLogFileTask.ts';
 import { ScanLibrariesTask } from './ScanLibrariesTask.ts';
+import { AiScheduleTask } from './AiScheduleTask.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
 
 export type ReconcileProgramDurationsTaskFactory = (
@@ -147,6 +148,11 @@ const TasksModule = new ContainerModule((bind) => {
   );
 
   bind<RefreshMediaSourceLibraryTask>(RefreshMediaSourceLibraryTask).toSelf();
+
+  bind(AiScheduleTask).toSelf();
+  bind<interfaces.AutoFactory<AiScheduleTask>>(
+    AiScheduleTask.KEY,
+  ).toAutoFactory(AiScheduleTask);
 });
 
 export { TasksModule };

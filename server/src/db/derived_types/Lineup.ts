@@ -140,6 +140,15 @@ export const LineupSchema = z.object({
   // OnDemand configuration for this channel. If empty, the channel
   // is not configured as on-demand.
   onDemandConfig: OnDemandChannelConfigSchema.optional(),
+
+  // AI scheduling configuration. When set, a periodic task uses
+  // the prompt to curate and replenish the channel's lineup.
+  aiConfig: z
+    .object({
+      prompt: z.string(),
+      lastScheduled: z.number().optional(),
+    })
+    .optional(),
 });
 
 export type Lineup = z.infer<typeof LineupSchema>;

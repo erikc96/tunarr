@@ -933,11 +933,11 @@ export const programmingApi: RouterPluginAsyncCallback = async (fastify) => {
             return res.status(404).send();
           }
 
-          const url = `${server.uri}/web/index.html#!/server/${
+          const url = `https://app.plex.tv/desktop/#!/server/${
             server.clientIdentifier
           }/details?key=${encodeURIComponent(
             `/library/metadata/${program.externalKey}`,
-          )}&X-Plex-Token=${server.accessToken}`;
+          )}`;
 
           if (!req.query.forward) {
             return res.send({ url });

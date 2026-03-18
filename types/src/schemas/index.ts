@@ -16,3 +16,4 @@ export * from './settingsSchemas.js';
 export * from './subtitleSchema.js';
 export * from './tasksSchema.js';
 export * from './transcodeConfigSchemas.js';
+export * from './aiSchemas.js';

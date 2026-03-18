@@ -39,6 +39,7 @@ import { systemApiRouter } from './systemApi.js';
 import { tasksApiRouter } from './tasksApi.js';
 import { trashApi } from './trashApi.ts';
 import { xmlTvSettingsRouter } from './xmltvSettingsApi.js';
+import { aiApiRouter } from './aiApi.js';
 
 export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
   const logger = LoggerFactory.child({ caller: import.meta, className: 'Api' });
@@ -79,7 +80,8 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
     .register(settingsApi)
     .register(trashApi)
     .register(container.get(SmartCollectionsApiController).mount)
-    .register(container.get(CreditsApiController).mount);
+    .register(container.get(CreditsApiController).mount)
+    .register(aiApiRouter);
 
   fastify.get(
     '/version',

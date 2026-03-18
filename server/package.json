@@ -30,6 +30,7 @@
     "typecheck": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsc -p tsconfig.build.json --noEmit --diagnostics"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@cospired/i18n-iso-languages": "^4.2.0",
     "@dotenvx/dotenvx": "^1.49.0",
     "@fastify/cors": "^10.1.0",
