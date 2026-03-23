@@ -5,6 +5,7 @@ import {
   useRefreshChannel,
   type AiRecommendation,
 } from '@/hooks/useAi.ts';
+import { useChannels } from '@/hooks/useChannels.ts';
 import {
   Add,
   AutoAwesome,
@@ -40,10 +41,16 @@ const typeColor: Record<AiRecommendation['type'], 'primary' | 'secondary' | 'suc
 
 export function AiRecommendations() {
   const { data, isLoading, refetch, isRefetching } = useAiRecommendations();
+  const { data: channels } = useChannels();
   const applyChannel = useApplyChannel();
   const addPrograms = useAddPrograms();
   const refreshChannel = useRefreshChannel();
   const { enqueueSnackbar } = useSnackbar();
+
+  // Map channel number → channel UUID for API calls
+  const channelUuidByNumber = new Map(
+    (channels ?? []).map((c) => [c.number, c.id]),
+  );
 
   const handleAction = (rec: AiRecommendation) => {
     switch (rec.type) {
@@ -56,10 +63,14 @@ export function AiRecommendations() {
           onError: (e) => enqueueSnackbar(e.message, { variant: 'error' }),
         });
         break;
-      case 'content-addition':
-        if (rec.targetChannel != null) {
+      case 'content-addition': {
+        const channelId =
+          rec.targetChannel != null
+            ? channelUuidByNumber.get(rec.targetChannel)
+            : undefined;
+        if (channelId) {
           addPrograms.mutate(
-            { channelId: String(rec.targetChannel), prompt: rec.actionPrompt },
+            { channelId, prompt: rec.actionPrompt },
             {
               onSuccess: (r) =>
                 enqueueSnackbar(
@@ -71,9 +82,14 @@ export function AiRecommendations() {
           );
         }
         break;
-      case 'schedule-improvement':
-        if (rec.targetChannel != null) {
-          refreshChannel.mutate(String(rec.targetChannel), {
+      }
+      case 'schedule-improvement': {
+        const channelId =
+          rec.targetChannel != null
+            ? channelUuidByNumber.get(rec.targetChannel)
+            : undefined;
+        if (channelId) {
+          refreshChannel.mutate(channelId, {
             onSuccess: (r) =>
               enqueueSnackbar(
                 `Added ${r.newProgramUuids.length} new programs`,
@@ -83,6 +99,7 @@ export function AiRecommendations() {
           });
         }
         break;
+      }
     }
   };
 

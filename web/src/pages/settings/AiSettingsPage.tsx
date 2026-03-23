@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   CircularProgress,
+  Divider,
   FormControlLabel,
   Stack,
   Switch,
@@ -25,18 +26,27 @@ export default function AiSettingsPage() {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [autoScanEnabled, setAutoScanEnabled] = useState(false);
+  const [autoScanIntervalMinutes, setAutoScanIntervalMinutes] = useState(30);
 
   useEffect(() => {
     if (settings) {
       setModel(settings.model);
       setEnabled(settings.enabled);
+      setAutoScanEnabled(settings.autoScanEnabled);
+      setAutoScanIntervalMinutes(settings.autoScanIntervalMinutes);
     }
   }, [settings]);
 
   if (isLoading) return <CircularProgress />;
 
   const handleSave = () => {
-    const body: Record<string, unknown> = { model, enabled };
+    const body: Record<string, unknown> = {
+      model,
+      enabled,
+      autoScanEnabled,
+      autoScanIntervalMinutes,
+    };
     if (apiKey.length > 0) body.apiKey = apiKey;
     updateSettings.mutate(body as Parameters<typeof updateSettings.mutate>[0], {
       onSuccess: () => {
@@ -89,6 +99,32 @@ export default function AiSettingsPage() {
             <Switch checked={enabled} onChange={(_, v) => setEnabled(v)} />
           }
           label="Enable AI features"
+        />
+        <Divider />
+        <Typography variant="subtitle2" color="text.secondary">
+          Auto-scheduling
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={autoScanEnabled}
+              onChange={(_, v) => setAutoScanEnabled(v)}
+            />
+          }
+          label="Enable automatic channel replenishment"
+          disabled={!enabled}
+        />
+        <TextField
+          label="Auto-scan interval (minutes)"
+          type="number"
+          value={autoScanIntervalMinutes}
+          onChange={(e) =>
+            setAutoScanIntervalMinutes(Math.max(5, parseInt(e.target.value) || 30))
+          }
+          inputProps={{ min: 5, max: 1440 }}
+          helperText="How often to check if channels need replenishment (5–1440 min)"
+          fullWidth
+          disabled={!enabled || !autoScanEnabled}
         />
         <Stack direction="row" spacing={2}>
           <Button variant="contained" onClick={handleSave} disabled={updateSettings.isPending}>
