@@ -3,7 +3,7 @@ import {
   LineupScheduleSchema,
   SchedulingOperationSchema,
 } from '@tunarr/types/api';
-import { FillerType } from '@tunarr/types/schemas';
+import { BlockScheduleConfigSchema, FillerType } from '@tunarr/types/schemas';
 import { first } from 'lodash-es';
 import { z } from 'zod/v4';
 
@@ -22,6 +22,8 @@ export const ContentLineupItemSchema = z
     customShowId: z.uuid().optional(),
     fillerListId: z.uuid().optional(),
     fillerType: FillerType.optional(),
+    // True when this item was inserted by InsertBumpersOperator
+    isBumper: z.boolean().optional(),
   })
   .merge(BaseLineupItemSchema);
 
@@ -147,6 +149,8 @@ export const LineupSchema = z.object({
     .object({
       prompt: z.string(),
       lastScheduled: z.number().optional(),
+      // Dual-block scheduling (e.g., CN by day / Adult Swim by night)
+      blockSchedule: BlockScheduleConfigSchema.optional(),
     })
     .optional(),
 });

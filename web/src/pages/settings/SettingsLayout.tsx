@@ -43,6 +43,11 @@ export function SettingsLayout({ currentTab = '/general' }: Props) {
             />
             <RouterTabLink label="HDHR" value="/hdhr" to="/settings/hdhr" />
             <RouterTabLink label="AI" value="/ai" to="/settings/ai" />
+            <RouterTabLink
+              label="Bumpers"
+              value="/bumpers"
+              to="/settings/bumpers"
+            />
           </Tabs>
         </Box>
 

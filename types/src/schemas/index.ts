@@ -17,3 +17,5 @@ export * from './subtitleSchema.js';
 export * from './tasksSchema.js';
 export * from './transcodeConfigSchemas.js';
 export * from './aiSchemas.js';
+export * from './bumperSchemas.js';
+export * from './blockScheduleSchemas.js';

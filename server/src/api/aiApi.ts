@@ -221,6 +221,22 @@ export const aiApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           { prompt: req.body.prompt, lastScheduled: Date.now() },
         );
 
+        // Auto-apply half-hour snap so programs start at :00 or :30
+        await req.serverCtx.channelDB.updateLineupConfig(
+          saved.channel.uuid,
+          'schedulingOperations',
+          [
+            {
+              type: 'modifier',
+              id: 'add_padding',
+              mod: 30,
+              alignChannelStartTime: true,
+              snapMode: 'half-hour',
+              allowMultiple: false,
+            },
+          ],
+        );
+
         GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
           .runNow(true)
           .catch((err) => logger.error(err, 'Error regenerating guide'));

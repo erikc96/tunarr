@@ -41,7 +41,10 @@ export class PadProgramsSchedulingOperator extends SchedulingOperator<AddPadding
 
   // TODO: This is some duplicated code from the frontend
   private padStartTimes(channel: Channel, programs: readonly LineupItem[]) {
-    const modMins = this.config.mod;
+    // snapMode overrides mod: half-hour = 30min, hour = 60min
+    const snapMode = this.config.snapMode ?? 'none';
+    const modMins =
+      snapMode === 'half-hour' ? 30 : snapMode === 'hour' ? 60 : this.config.mod;
     const mod = modMins * 60 * 1000;
     const startTime = dayjs(channel.startTime).unix() * 1000;
     const newStartTime = this.config.alignChannelStartTime

@@ -4,7 +4,7 @@ import type { Func } from '@/types/func.js';
 import { asyncPool } from '@/util/asyncPool.js';
 import { Logger } from '@/util/logging/LoggerFactory.js';
 import type { SchedulingOperation } from '@tunarr/types/api';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, optional } from 'inversify';
 import { Kysely } from 'kysely';
 import {
   compact,
@@ -27,6 +27,7 @@ import {
   intersperse,
   isDefined,
 } from '../../util/index.js';
+import { BumperDB } from '../bumpers/BumperDB.js';
 import { CollapseOfflineTimeOperator } from './CollapseOfflineTimeOperator.js';
 import { IntermediateOperator } from './IntermediateOperator.js';
 import type { LineupBuilderContext } from './LineupCreatorContext.js';
@@ -44,6 +45,7 @@ export class LineupCreator {
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
     @inject(KEYS.Logger) private logger: Logger,
     @inject(KEYS.Database) private db: Kysely<DB>,
+    @optional() @inject(BumperDB) private bumperDB: BumperDB | undefined,
   ) {}
 
   // Right now this is very basic -- we just set the pending items
@@ -159,7 +161,10 @@ export class LineupCreator {
     const operations = compact(
       map(
         sortBy(dedupedOps, (op) => OperatorToWeight[op.type]),
-        (op) => SchedulingOperatorFactory.create(op),
+        (op) =>
+          SchedulingOperatorFactory.create(op, {
+            bumperDB: this.bumperDB,
+          }),
       ),
     );
 

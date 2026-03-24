@@ -127,15 +127,34 @@ const AddPaddingOperationSchema = BaseSchedulingOpertionSchema.extend({
   allowedOffsets: z.array(z.number()).optional(),
   alignChannelStartTime: z.boolean().default(false),
   allowMultiple: z.literal(false).default(false).optional(),
+  // Round-time alignment: 'half-hour' snaps to :00/:30, 'hour' snaps to :00 only
+  snapMode: z.enum(['none', 'half-hour', 'hour']).default('none').optional(),
 });
 
 export type AddPaddingOperation = z.infer<typeof AddPaddingOperationSchema>;
+
+const InsertBumpersOperationSchema = BaseSchedulingOpertionSchema.extend({
+  type: z.literal('modifier'),
+  id: z.literal('insert_bumpers'),
+  // UUID of the BumperPack to draw bumpers from
+  packId: z.string().uuid(),
+  // How many bumpers to insert between each episode (default 1)
+  count: z.number().int().min(1).max(5).default(1),
+  // 'between' = between episodes only; 'within' = between + at channel start
+  placement: z.enum(['between', 'within']).default('between'),
+  allowMultiple: z.literal(false).default(false).optional(),
+});
+
+export type InsertBumpersOperation = z.infer<
+  typeof InsertBumpersOperationSchema
+>;
 
 export const SchedulingOperationSchema = z.union([
   AddPaddingOperationSchema,
   ScheduledRedirectOperationSchema,
   RandomSortOrderOperationSchema,
   ReleaseDateSortOrderOperationSchema,
+  InsertBumpersOperationSchema,
 ]);
 
 export type SchedulingOperation = z.infer<typeof SchedulingOperationSchema>;

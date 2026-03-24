@@ -27,6 +27,7 @@ import { Route as SettingsSourcesRouteImport } from './routes/settings/sources';
 import { Route as SettingsHdhrRouteImport } from './routes/settings/hdhr';
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general';
 import { Route as SettingsFfmpegRouteImport } from './routes/settings/ffmpeg';
+import { Route as SettingsBumpersRouteImport } from './routes/settings/bumpers';
 import { Route as SettingsAiRouteImport } from './routes/settings/ai';
 import { Route as LibraryFillersRouteImport } from './routes/library/fillers';
 import { Route as LibraryCustomShowsRouteImport } from './routes/library/custom-shows';
@@ -149,6 +150,11 @@ const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
 const SettingsFfmpegRoute = SettingsFfmpegRouteImport.update({
   id: '/ffmpeg',
   path: '/ffmpeg',
+  getParentRoute: () => SettingsRoute,
+} as any);
+const SettingsBumpersRoute = SettingsBumpersRouteImport.update({
+  id: '/bumpers',
+  path: '/bumpers',
   getParentRoute: () => SettingsRoute,
 } as any);
 const SettingsAiRoute = SettingsAiRouteImport.update({
@@ -351,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
   '/settings/ai': typeof SettingsAiRoute;
+  '/settings/bumpers': typeof SettingsBumpersRoute;
   '/settings/ffmpeg': typeof SettingsFfmpegRoute;
   '/settings/general': typeof SettingsGeneralRoute;
   '/settings/hdhr': typeof SettingsHdhrRoute;
@@ -402,6 +409,7 @@ export interface FileRoutesByTo {
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
   '/settings/ai': typeof SettingsAiRoute;
+  '/settings/bumpers': typeof SettingsBumpersRoute;
   '/settings/ffmpeg': typeof SettingsFfmpegRoute;
   '/settings/general': typeof SettingsGeneralRoute;
   '/settings/hdhr': typeof SettingsHdhrRoute;
@@ -454,6 +462,7 @@ export interface FileRoutesById {
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
   '/settings/ai': typeof SettingsAiRoute;
+  '/settings/bumpers': typeof SettingsBumpersRoute;
   '/settings/ffmpeg': typeof SettingsFfmpegRoute;
   '/settings/general': typeof SettingsGeneralRoute;
   '/settings/hdhr': typeof SettingsHdhrRoute;
@@ -509,6 +518,7 @@ export interface FileRouteTypes {
     | '/library/custom-shows'
     | '/library/fillers'
     | '/settings/ai'
+    | '/settings/bumpers'
     | '/settings/ffmpeg'
     | '/settings/general'
     | '/settings/hdhr'
@@ -560,6 +570,7 @@ export interface FileRouteTypes {
     | '/library/custom-shows'
     | '/library/fillers'
     | '/settings/ai'
+    | '/settings/bumpers'
     | '/settings/ffmpeg'
     | '/settings/general'
     | '/settings/hdhr'
@@ -611,6 +622,7 @@ export interface FileRouteTypes {
     | '/library/custom-shows'
     | '/library/fillers'
     | '/settings/ai'
+    | '/settings/bumpers'
     | '/settings/ffmpeg'
     | '/settings/general'
     | '/settings/hdhr'
@@ -804,6 +816,13 @@ declare module '@tanstack/react-router' {
       path: '/ffmpeg';
       fullPath: '/settings/ffmpeg';
       preLoaderRoute: typeof SettingsFfmpegRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    '/settings/bumpers': {
+      id: '/settings/bumpers';
+      path: '/bumpers';
+      fullPath: '/settings/bumpers';
+      preLoaderRoute: typeof SettingsBumpersRouteImport;
       parentRoute: typeof SettingsRoute;
     };
     '/settings/ai': {
@@ -1042,6 +1061,7 @@ declare module '@tanstack/react-router' {
 
 interface SettingsRouteChildren {
   SettingsAiRoute: typeof SettingsAiRoute;
+  SettingsBumpersRoute: typeof SettingsBumpersRoute;
   SettingsFfmpegRoute: typeof SettingsFfmpegRoute;
   SettingsGeneralRoute: typeof SettingsGeneralRoute;
   SettingsHdhrRoute: typeof SettingsHdhrRoute;
@@ -1053,6 +1073,7 @@ interface SettingsRouteChildren {
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAiRoute: SettingsAiRoute,
+  SettingsBumpersRoute: SettingsBumpersRoute,
   SettingsFfmpegRoute: SettingsFfmpegRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsHdhrRoute: SettingsHdhrRoute,
