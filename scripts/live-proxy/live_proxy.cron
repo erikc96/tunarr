@@ -1,11 +1,14 @@
 #!/bin/bash
 # Watchdog (crontab */5): start the live proxy if it isn't running.
 # yt-dlp runs inside the youtarr container and goes out through Youtarr's
-# ProtonVPN SOCKS proxy (YouTube bot-walls the box's own IPs). The proxy URL
-# is read from Youtarr's config so its password lives in one place.
+# setup: PO tokens, plus Youtarr's proxy if one is configured. The proxy URL is
+# read from Youtarr's config so its password lives in one place.
 cd "$(dirname "$0")"
 pgrep -u "$USER" -f "^[^ ]*python3 live_proxy[.]py" >/dev/null && exit 0
 proxy=$(jq -r '.proxy // empty' ~/youtarr/config/config.json)
 export YTDLP="podman exec youtarr /opt/yt-dlp/yt-dlp"
-export YTDLP_ARGS="${proxy:+--proxy $proxy}"
+# Same yt-dlp setup as Youtarr: bgutil PO tokens from the youtarr-pot sidecar,
+# and IPv6 unless a proxy is set (-6 can't reach the pod's IPv4 SOCKS proxy).
+export YTDLP_ARGS="--plugin-dirs /app/config/yt-dlp-plugins ${proxy:+-4 --proxy $proxy}"
+[ -n "$proxy" ] || YTDLP_ARGS="$YTDLP_ARGS -6"
 nohup python3 live_proxy.py >> live_proxy.log 2>&1 < /dev/null &
