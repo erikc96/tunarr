@@ -10,6 +10,7 @@ import { filter, isError, isString, map, some } from 'lodash-es';
 import fs from 'node:fs/promises';
 import path, { basename, extname } from 'node:path';
 import { defaultHlsOptions } from '../../ffmpeg/builder/constants.ts';
+import { liveChannelUrl } from '../../ffmpeg/FfmpegStreamFactory.ts';
 import { serverOptions } from '../../globals.ts';
 import { fileExists } from '../../util/fsUtil.ts';
 
@@ -162,8 +163,9 @@ export abstract class BaseHlsSession<
         },
         {
           // Poll often so the stream is handed over as soon as it's ready;
-          // same ~15s ceiling as before.
-          retries: 60,
+          // same ~15s ceiling as before. Live channels get ~45s: yt-dlp
+          // through the VPN proxy takes ~16s to produce its first byte.
+          retries: liveChannelUrl(this.channel.number) ? 180 : 60,
           factor: 1,
           minTimeout: 250,
           maxTimeout: 250,

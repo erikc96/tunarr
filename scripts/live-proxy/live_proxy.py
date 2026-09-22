@@ -19,7 +19,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("LIVE_PROXY_PORT", "8210"))
-YTDLP = os.environ.get("YTDLP", os.path.expanduser("~/.local/bin/yt-dlp"))
+# A command, not just a path: on the Whatbox this is `podman exec youtarr
+# /opt/yt-dlp/yt-dlp` so yt-dlp can use the pod-private ProtonVPN SOCKS proxy.
+YTDLP = shlex.split(os.environ.get("YTDLP", os.path.expanduser("~/.local/bin/yt-dlp")))
 # Extra yt-dlp args, e.g. "-6 --cookies /path/cookies.txt"
 EXTRA = shlex.split(os.environ.get("YTDLP_ARGS", ""))
 
@@ -38,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
         # Remux to a fixed layout (video 0, audio 1): Tunarr maps streams by
         # the placeholder program's indices, and sources order them freely.
         cmd = (
-            f"{shlex.join([YTDLP, '-q', '--no-warnings', '--no-part', '-f', 'best[height<=720]/best', '--hls-use-mpegts', *EXTRA, '-o', '-', url])}"
+            f"{shlex.join([*YTDLP, '-q', '--no-warnings', '--no-part', '-f', 'bv*[height<=720]+ba/b', '--downloader', 'ffmpeg', '--hls-use-mpegts', *EXTRA, '-o', '-', url])}"
             " | ffmpeg -nostdin -loglevel error -i - -map 0:v:0 -map 0:a:0 -c copy -f mpegts -"
         )
         proc = subprocess.Popen(
