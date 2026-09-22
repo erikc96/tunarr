@@ -35,12 +35,17 @@ class Handler(BaseHTTPRequestHandler):
         if not url:
             self.send_error(404)
             return
+        # Remux to a fixed layout (video 0, audio 1): Tunarr maps streams by
+        # the placeholder program's indices, and sources order them freely.
+        cmd = (
+            f"{shlex.join([YTDLP, '-q', '--no-warnings', '--no-part', '-f', 'best[height<=720]/best', '--hls-use-mpegts', *EXTRA, '-o', '-', url])}"
+            " | ffmpeg -nostdin -loglevel error -i - -map 0:v:0 -map 0:a:0 -c copy -f mpegts -"
+        )
         proc = subprocess.Popen(
-            [YTDLP, "-q", "--no-warnings", "--no-part", "-f", "best[height<=720]/best",
-             "--hls-use-mpegts", *EXTRA, "-o", "-", url],
+            ["bash", "-o", "pipefail", "-c", cmd],
             stdout=subprocess.PIPE,
             stderr=sys.stderr,
-            start_new_session=True,  # own process group: kill ffmpeg children too
+            start_new_session=True,  # own process group: kill yt-dlp + ffmpeg together
         )
         try:
             first = proc.stdout.read(188 * 64)
