@@ -30,7 +30,22 @@ const SUPPORTED_EXTENSIONS = new Set([
   '.mp4', '.mkv', '.avi', '.mov', '.ts', '.m4v', '.wmv', '.flv', '.webm',
 ]);
 
-const BUMPER_SOURCE_PREFIX = 'tunarr-bumpers-';
+export const BUMPER_SOURCE_PREFIX = 'tunarr-bumpers-';
+// Local media sources must carry a mediaType or the API can't serialize them.
+export const BUMPER_SOURCE_MEDIA_TYPE = 'other_videos';
+
+/**
+ * Bumper packs are backed by an internal local media source with no
+ * libraries. It isn't user-manageable, so the media source API hides it.
+ */
+export function isBumperMediaSource(source: {
+  type: string;
+  name: string;
+}): boolean {
+  return (
+    source.type === 'local' && source.name.startsWith(BUMPER_SOURCE_PREFIX)
+  );
+}
 
 export interface CreateBumperPackOptions {
   name: string;
@@ -117,6 +132,7 @@ export class BumperScanner {
       uuid,
       name: sourceName,
       type: 'local',
+      mediaType: BUMPER_SOURCE_MEDIA_TYPE,
       uri: '',
       accessToken: '',
       index: count,

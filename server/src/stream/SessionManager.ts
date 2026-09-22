@@ -23,6 +23,7 @@ import {
   type ConcatSessionFactory,
   type ConcatSessionOptions,
 } from './ConcatSession.js';
+import { sessionsToEvict } from './ConnectionTracker.ts';
 import { HlsConcatSessionType, Session } from './Session.js';
 import {
   HlsSession,
@@ -53,6 +54,8 @@ export type SessionKey = `${string}_${SessionType}`;
 export class SessionManager {
   #sessionLocker = new MutexMap();
   #sessions: Record<SessionKey, Session> = {};
+  // Transcode sessions with no viewers, and when they lost their last one.
+  #idleSince = new Map<SessionKey, number>();
 
   constructor(
     @inject(KEYS.Logger) private logger: Logger,
@@ -217,6 +220,7 @@ export class SessionManager {
       (channel) =>
         this.hlsSlowerSessionFactory(channel, {
           initialSegmentCount: 2, // 8 seconds of content
+          cleanupDelay: this.lingerMs(),
           transcodeDirectory:
             this.settingsDB.ffmpegSettings().transcodeDirectory,
           ...options,
@@ -238,6 +242,7 @@ export class SessionManager {
       (channel) =>
         this.hlsSessionFactory(channel, {
           initialSegmentCount: 2, // 8 seconds of content
+          cleanupDelay: this.lingerMs(),
           transcodeDirectory:
             this.settingsDB.ffmpegSettings().transcodeDirectory,
           ...options,
@@ -316,6 +321,10 @@ export class SessionManager {
             this.shutdownChildSessions(channelId, sessionType);
           });
 
+          session.on('addConnection', () => {
+            this.#idleSince.delete(sessionCacheKey(channelId, sessionType));
+          });
+
           session.on('removeConnection', (_, connection) => {
             this.logger.debug(
               this.getLoggerContext(session?.id),
@@ -323,9 +332,18 @@ export class SessionManager {
               session?.id ?? '',
               connection,
             );
-            // Error handled below
-            if (session) {
-              this.pauseChannelIfNecessary(session, connection).catch(() => {});
+            // Sessions linger after their last viewer leaves, so on-demand
+            // channels pause on 'stop' instead of here.
+            if (
+              session &&
+              !session.isConcatSession() &&
+              session.numConnections() === 0
+            ) {
+              this.#idleSince.set(
+                sessionCacheKey(channelId, sessionType),
+                Date.now(),
+              );
+              this.evictLingeringSessions();
             }
             this.eventService.push({
               type: 'stream',
@@ -389,6 +407,7 @@ export class SessionManager {
 
   private deleteSession(id: string, sessionType: SessionType) {
     const key = sessionCacheKey(id, sessionType);
+    this.#idleSince.delete(key);
     ifDefined(this.#sessions[key], (session) => {
       session.stop().catch((e) => {
         this.logger.error(
@@ -398,6 +417,32 @@ export class SessionManager {
       });
     });
     delete this.#sessions[key];
+  }
+
+  // How long a transcode keeps running after its last viewer leaves, so
+  // coming back to the channel skips the cold start.
+  private lingerMs() {
+    return (
+      (this.settingsDB.ffmpegSettings().idleSessionLingerSeconds ?? 15) * 1000
+    );
+  }
+
+  // Stop the longest-idle sessions beyond maxLingeringSessions.
+  private evictLingeringSessions() {
+    const max = this.settingsDB.ffmpegSettings().maxLingeringSessions ?? 2;
+    for (const key of sessionsToEvict(this.#idleSince, max)) {
+      const session = this.#sessions[key];
+      this.#idleSince.delete(key);
+      if (session) {
+        this.logger.debug(
+          this.getLoggerContext(session.id),
+          'Too many lingering sessions (max %d). Stopping %s',
+          max,
+          key,
+        );
+        this.deleteSession(session.keyObj.id, session.sessionType);
+      }
+    }
   }
 
   private resumeChannelIfNecessary(channelId: string) {

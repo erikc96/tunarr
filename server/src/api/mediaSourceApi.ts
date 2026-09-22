@@ -36,6 +36,7 @@ import { v4 } from 'uuid';
 import z from 'zod/v4';
 import { container } from '../container.ts';
 import type { MediaSourceWithRelations } from '../db/schema/derivedTypes.js';
+import { isBumperMediaSource } from '../services/bumpers/BumperScanner.ts';
 import { EntityMutex } from '../services/EntityMutex.ts';
 import { MediaSourceLibraryRefresher } from '../services/MediaSourceLibraryRefresher.ts';
 import { MediaSourceProgressService } from '../services/scanner/MediaSourceProgressService.ts';
@@ -67,9 +68,19 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
       try {
         const sources = await req.serverCtx.mediaSourceDB.getAll();
 
-        const dtos = seq.collect(sources, (source) =>
-          convertToApiMediaSource(entityLocker, source),
-        );
+        // One malformed row shouldn't take down the whole list (and the
+        // media source settings page with it); skip it and log instead.
+        const dtos = seq.collect(sources, (source) => {
+          if (isBumperMediaSource(source)) {
+            return;
+          }
+          try {
+            return convertToApiMediaSource(entityLocker, source);
+          } catch (err) {
+            logger.warn(err, 'Skipping invalid media source %s', source.uuid);
+            return;
+          }
+        });
 
         return res.send(dtos);
       } catch (err) {
@@ -99,7 +110,7 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
         const source = await req.serverCtx.mediaSourceDB.getById(
           tag(req.params.mediaSourceId),
         );
-        if (!source) {
+        if (!source || isBumperMediaSource(source)) {
           return res.status(404).send();
         }
         const entityLocker = container.get<EntityMutex>(EntityMutex);

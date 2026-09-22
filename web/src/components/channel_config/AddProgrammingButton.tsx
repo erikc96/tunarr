@@ -7,6 +7,7 @@ import {
   Expand as PaddingIcon,
   Directions as RedirectIcon,
   Nightlight as RestrictHoursIcon,
+  VideoFile as BumpersIcon,
 } from '@mui/icons-material';
 import { Button, ButtonGroup, MenuItem } from '@mui/material';
 import { useNavigate } from '@tanstack/react-router';
@@ -19,6 +20,7 @@ import AddFlexModal from '../programming_controls/AddFlexModal';
 import AddPaddingModal from '../programming_controls/AddPaddingModal';
 import AddRedirectModal from '../programming_controls/AddRedirectModal';
 import AddRestrictHoursModal from '../programming_controls/AddRestrictHoursModal';
+import InsertBumpersModal from '../programming_controls/InsertBumpersModal.tsx';
 
 export default function AddProgrammingButton() {
   const [addRedirectModalOpen, setAddRedirectModalOpen] = useState(false);
@@ -27,6 +29,7 @@ export default function AddProgrammingButton() {
   const [addRestrictHoursModalOpen, setAddRestrictHoursModalOpen] =
     useState(false);
   const [addBreaksModalOpen, setAddBreaksModalOpen] = useState(false);
+  const [insertBumpersModalOpen, setInsertBumpersModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [lastSelection, setLastSelection] = useState<number>(0);
   const navigate = useNavigate();
@@ -101,6 +104,21 @@ export default function AddProgrammingButton() {
         "The channel's regular programming between the specified hours. Flex time will fill up the remaining hours.",
       divider: false,
     },
+    {
+      icon: null,
+      name: 'Bumpers',
+      callback: () => null,
+      description: '',
+      divider: true,
+    },
+    {
+      icon: <BumpersIcon />,
+      name: 'Insert Bumpers',
+      callback: () => setInsertBumpersModalOpen(true),
+      description:
+        'Insert short video clips between programs on this channel using a bumper pack.',
+      divider: false,
+    },
   ];
 
   return (
@@ -124,6 +142,10 @@ export default function AddProgrammingButton() {
       <AddBreaksModal
         open={addBreaksModalOpen}
         onClose={() => setAddBreaksModalOpen(false)}
+      />
+      <InsertBumpersModal
+        open={insertBumpersModalOpen}
+        onClose={() => setInsertBumpersModalOpen(false)}
       />
 
       <ButtonGroup aria-label="Add Programming Button Group">

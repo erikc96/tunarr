@@ -53,6 +53,14 @@ export interface IProgramDB {
     id: string,
   ): Promise<Maybe<MarkRequired<ProgramWithRelationsOrm, 'externalIds'>>>;
 
+  /**
+   * Slim program fetch for the streaming hot path. Only loads scalar fields
+   * and externalIds — omits artwork, subtitles, credits, and versions.
+   */
+  getProgramForStream(
+    id: string,
+  ): Promise<Maybe<MarkRequired<ProgramWithRelationsOrm, 'externalIds'>>>;
+
   getProgramExternalIds(
     id: string,
     externalIdTypes?: ProgramExternalIdType[],

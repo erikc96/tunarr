@@ -18,10 +18,15 @@ import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import dayjs from 'dayjs';
 import type { interfaces } from 'inversify';
 import { isNil, isUndefined } from 'lodash-es';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { v4 } from 'uuid';
 import type { FFmpegFactory } from '../../ffmpeg/FFmpegModule.js';
 import type { StreamOptions } from '../../ffmpeg/ffmpegBase.ts';
 import { GlobalScheduler } from '../../services/Scheduler.ts';
+import { buildBumperConcat } from '../bumperConcatBuilder.ts';
+import { LocalConcatStreamSource } from '../types.ts';
 import type { PlexStreamDetails } from './PlexStreamDetails.js';
 
 export class PlexProgramStream extends ProgramStream {
@@ -114,13 +119,49 @@ export class PlexProgramStream extends ProgramStream {
 
     const start = dayjs.duration(lineupItem.startOffset ?? 0);
 
+    // Build a bumper concat when within-program or between-program bumpers are
+    // configured and the file is accessible locally (type === 'file').
+    let effectiveSource = stream.streamSource;
+    let concatTmpDir: string | undefined;
+
+    if (
+      lineupItem.type === 'program' &&
+      (lineupItem.prependBumper || lineupItem.withinBumpers) &&
+      stream.streamSource.type === 'file'
+    ) {
+      try {
+        const concatContent = buildBumperConcat(
+          stream.streamSource.path,
+          lineupItem.duration,
+          lineupItem.startOffset ?? 0,
+          lineupItem.streamDuration,
+          {
+            prependBumper: lineupItem.prependBumper,
+            withinBumpers: lineupItem.withinBumpers,
+          },
+        );
+        concatTmpDir = await mkdtemp(join(tmpdir(), 'tunarr-bumpers-'));
+        const concatPath = join(concatTmpDir, 'concat.txt');
+        await writeFile(concatPath, concatContent, 'utf8');
+        effectiveSource = new LocalConcatStreamSource(concatPath);
+      } catch (err) {
+        this.logger.warn(
+          { err },
+          'Failed to build bumper concat for Plex stream, falling back to regular stream',
+        );
+      }
+    }
+
     const transcodeSession = await ffmpeg.createStreamSession({
       stream: {
-        source: stream.streamSource,
+        source: effectiveSource,
         details: stream.streamDetails,
       },
       options: {
-        startTime: start,
+        startTime:
+          effectiveSource instanceof LocalConcatStreamSource
+            ? dayjs.duration(0)
+            : start,
         duration: dayjs.duration(lineupItem.streamDuration),
         watermark,
         realtime: this.context.realtime,
@@ -132,7 +173,16 @@ export class PlexProgramStream extends ProgramStream {
     });
 
     if (isUndefined(transcodeSession)) {
+      if (concatTmpDir) {
+        void rm(concatTmpDir, { recursive: true, force: true });
+      }
       return Result.forError(new Error('Unable to create ffmpeg process'));
+    }
+
+    if (concatTmpDir) {
+      transcodeSession.process.on('exit', () => {
+        void rm(concatTmpDir!, { recursive: true, force: true });
+      });
     }
 
     if (plexSettings.updatePlayStatus) {

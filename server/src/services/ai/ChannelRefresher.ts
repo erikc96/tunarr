@@ -77,7 +77,7 @@ export class ChannelRefresher {
         },
         { role: 'user', content: userMsg },
       ],
-      { responseFormat: 'json', temperature: 0.5 },
+      { responseFormat: 'json' },
     );
 
     let parsed: {
@@ -141,7 +141,7 @@ export class ChannelRefresher {
         },
         { role: 'user', content: userMsg },
       ],
-      { responseFormat: 'json', temperature: 0.5 },
+      { responseFormat: 'json' },
     );
 
     let parsed: {

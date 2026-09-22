@@ -184,7 +184,7 @@ export class HlsSession extends BaseHlsSession {
 
       let programStream = this.getProgramStream(context);
 
-      programStream.on('error', () => {
+      programStream.once('error', () => {
         this.state = 'error';
         this.error = new Error(
           `Unrecoverable error in underlying FFMPEG process`,

@@ -2,13 +2,25 @@ import z from 'zod/v4';
 
 export const AiSettingsSchema = z.object({
   apiKey: z.string().default(''),
-  model: z.string().default('claude-sonnet-4-20250514'),
+  model: z.string().default('claude-sonnet-5'),
   enabled: z.boolean().default(false),
   autoScanEnabled: z.boolean().default(false),
   autoScanIntervalMinutes: z.number().min(5).max(1440).default(30),
 });
 
 export type AiSettings = z.infer<typeof AiSettingsSchema>;
+
+// No defaults here: zod fills defaults even inside .partial(), so a PUT of
+// {model} through AiSettingsSchema.partial() wiped apiKey and the toggles.
+export const AiSettingsUpdateSchema = z
+  .object({
+    apiKey: z.string(),
+    model: z.string(),
+    enabled: z.boolean(),
+    autoScanEnabled: z.boolean(),
+    autoScanIntervalMinutes: z.number().min(5).max(1440),
+  })
+  .partial();
 
 export const AiSettingsPublicSchema = z.object({
   model: z.string(),

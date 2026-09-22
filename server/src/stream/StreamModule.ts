@@ -36,6 +36,7 @@ import type { ProgramStreamFactory } from './ProgramStreamFactory.ts';
 import { ExternalStreamDetailsFetcherFactory } from './StreamDetailsFetcher.ts';
 import { EmbyProgramStream } from './emby/EmbyProgramStream.ts';
 import { EmbyStreamDetails } from './emby/EmbyStreamDetails.ts';
+import { SilenceAnalyzer } from '../services/bumpers/SilenceAnalyzer.ts';
 import { LocalProgramStream } from './local/LocalProgramStream.ts';
 import { LocalProgramStreamDetails } from './local/LocalProgramStreamDetails.ts';
 
@@ -125,6 +126,9 @@ const configure: interfaces.ContainerModuleCallBack = (bind) => {
           ctx.container.get<interfaces.AutoFactory<LocalProgramStreamDetails>>(
             autoFactoryKey(LocalProgramStreamDetails),
           ),
+          ctx.container.isBound(SilenceAnalyzer)
+            ? ctx.container.get(SilenceAnalyzer)
+            : undefined,
           playerContext,
           outputFormat,
         );

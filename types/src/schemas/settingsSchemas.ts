@@ -103,6 +103,12 @@ export const FfmpegSettingsSchema = z.object({
     .default('none'),
   hlsDirectOutputFormat: z.enum(['mkv', 'mpegts', 'mp4']).default('mpegts'),
   enableSubtitleExtraction: z.boolean().optional().default(false),
+  // How long a channel's transcode keeps running after its last viewer
+  // leaves (noticed 30-90s after they go), so coming back skips the cold start.
+  idleSessionLingerSeconds: z.number().min(0).default(15),
+  // At most this many viewerless transcodes linger at once; the one idle
+  // longest is stopped first.
+  maxLingeringSessions: z.number().int().min(0).default(2),
 });
 
 export const MediaSourceType = z.enum(['plex', 'jellyfin', 'emby', 'local']);

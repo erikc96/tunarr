@@ -230,9 +230,38 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannel {
   } satisfies NewChannel;
 }
 
-// Let's see if this works... in so we can have many ChannelDb objects flying around.
-const fileDbCache: Record<string | number, Low<Lineup>> = {};
+// Bounded LRU lineup cache. Each entry holds the parsed lineup JSON (potentially
+// several MB for large channels). Without eviction this grows without bound and
+// causes OOM on memory-constrained hosts.
+const LINEUP_CACHE_MAX = 30;
+const LINEUP_CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
+
+interface LineupCacheEntry {
+  db: Low<Lineup>;
+  lastAccessed: number;
+}
+
+const fileDbCache = new Map<string, LineupCacheEntry>();
 const fileDbLocks = new MutexMap();
+
+function evictLineupCache(force?: string) {
+  const now = Date.now();
+  // Evict by TTL first
+  for (const [key, entry] of fileDbCache) {
+    if (key === force || now - entry.lastAccessed > LINEUP_CACHE_TTL_MS) {
+      fileDbCache.delete(key);
+    }
+  }
+  // Then by size — drop oldest if still over limit
+  if (fileDbCache.size > LINEUP_CACHE_MAX) {
+    const sorted = [...fileDbCache.entries()].sort(
+      (a, b) => a[1].lastAccessed - b[1].lastAccessed,
+    );
+    for (const [key] of sorted.slice(0, fileDbCache.size - LINEUP_CACHE_MAX)) {
+      fileDbCache.delete(key);
+    }
+  }
+}
 
 @injectable()
 export class ChannelDB implements IChannelDB {
@@ -1543,29 +1572,27 @@ export class ChannelDB implements IChannelDB {
   async loadChannelAndLineup(
     channelId: string,
   ): Promise<ChannelAndLineup<Channel> | null> {
-    const channel = await this.getChannel(channelId);
+    const [channel, lineup] = await Promise.all([
+      this.getChannel(channelId),
+      this.loadLineup(channelId),
+    ]);
     if (isNil(channel)) {
       return null;
     }
-
-    return {
-      channel,
-      lineup: await this.loadLineup(channelId),
-    };
+    return { channel, lineup };
   }
 
   async loadChannelAndLineupOrm(
     channelId: string,
   ): Promise<ChannelAndLineup<ChannelOrm> | null> {
-    const channel = await this.getChannelOrm(channelId);
+    const [channel, lineup] = await Promise.all([
+      this.getChannelOrm(channelId),
+      this.loadLineup(channelId),
+    ]);
     if (isNil(channel)) {
       return null;
     }
-
-    return {
-      channel,
-      lineup: await this.loadLineup(channelId),
-    };
+    return { channel, lineup };
   }
 
   async loadChannelWithProgamsAndLineup(
@@ -1865,14 +1892,26 @@ export class ChannelDB implements IChannelDB {
   }
 
   private async getFileDb(channelId: string, forceRead: boolean = false) {
+    // Fast path: return from cache without acquiring the mutex.
+    // This is the hot path (every stream start). We re-check inside the lock
+    // below to handle the concurrent-miss race correctly.
+    if (!forceRead) {
+      const cached = fileDbCache.get(channelId);
+      if (isDefined(cached)) {
+        cached.lastAccessed = Date.now();
+        return cached.db;
+      }
+    }
+
     return await fileDbLocks.getOrCreateLock(channelId).then((lock) =>
       lock.runExclusive(async () => {
-        const existing = fileDbCache[channelId];
+        const existing = fileDbCache.get(channelId);
         if (isDefined(existing)) {
           if (forceRead) {
-            await existing.read();
+            await existing.db.read();
           }
-          return existing;
+          existing.lastAccessed = Date.now();
+          return existing.db;
         }
 
         const defaultValue = {
@@ -1890,7 +1929,8 @@ export class ChannelDB implements IChannelDB {
           defaultValue,
         );
         await db.read();
-        fileDbCache[channelId] = db;
+        fileDbCache.set(channelId, { db, lastAccessed: Date.now() });
+        evictLineupCache();
         return db;
       }),
     );
@@ -1914,7 +1954,7 @@ export class ChannelDB implements IChannelDB {
         await fs.rename(path, newPath);
       }
       if (isDelete) {
-        delete fileDbCache[channelId];
+        fileDbCache.delete(channelId);
       } else {
         // Reload the file into the DB cache
         await this.getFileDb(channelId);

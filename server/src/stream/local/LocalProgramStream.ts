@@ -1,6 +1,11 @@
 import dayjs from 'dayjs';
 import { head, isUndefined } from 'lodash-es';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { SilenceAnalyzer } from '../../services/bumpers/SilenceAnalyzer.ts';
 import { isLocalBackedLineupItem } from '../../db/derived_types/StreamLineup.ts';
+import { buildBumperConcat } from '../bumperConcatBuilder.ts';
 import type { IProgramDB } from '../../db/interfaces/IProgramDB.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
 import type { OutputFormat } from '../../ffmpeg/builder/constants.ts';
@@ -9,6 +14,7 @@ import type { FFmpegFactory } from '../../ffmpeg/FFmpegModule.ts';
 import type { FfmpegTranscodeSession } from '../../ffmpeg/FfmpegTrancodeSession.ts';
 import type { CacheImageService } from '../../services/cacheImageService.ts';
 import { Result } from '../../types/result.ts';
+import { LocalConcatStreamSource } from '../types.ts';
 import type { PlayerContext } from '../PlayerStreamContext.ts';
 import { ProgramStream } from '../ProgramStream.ts';
 
@@ -28,6 +34,7 @@ export class LocalProgramStream extends ProgramStream {
     private mediaSourceDB: MediaSourceDB,
     private programDB: IProgramDB,
     private streamDetailsFactory: interfaces.AutoFactory<LocalProgramStreamDetails>,
+    private silenceAnalyzer: SilenceAnalyzer | undefined,
     context: PlayerContext,
     outputFormat: OutputFormat,
   ) {
@@ -109,13 +116,57 @@ export class LocalProgramStream extends ProgramStream {
 
     const { streamDetails: details, streamSource: source } = streamResult.get();
 
+    // When bumpers are configured, generate a local ffconcat file that
+    // prepends between-program bumpers and/or interleaves within-program bumpers.
+    let effectiveSource = source;
+    let concatTmpDir: string | undefined;
+
+    if (
+      lineupItem.type === 'program' &&
+      (lineupItem.prependBumper || lineupItem.withinBumpers) &&
+      source.type === 'file'
+    ) {
+      try {
+        const silences =
+          this.silenceAnalyzer && lineupItem.withinBumpers
+            ? await this.silenceAnalyzer.getSilences(source.path)
+            : undefined;
+
+        const concatContent = buildBumperConcat(
+          source.path,
+          lineupItem.duration,
+          lineupItem.startOffset ?? 0,
+          lineupItem.streamDuration,
+          {
+            prependBumper: lineupItem.prependBumper,
+            withinBumpers: lineupItem.withinBumpers,
+          },
+          silences,
+        );
+        concatTmpDir = await mkdtemp(join(tmpdir(), 'tunarr-bumpers-'));
+        const concatPath = join(concatTmpDir, 'concat.txt');
+        await writeFile(concatPath, concatContent, 'utf8');
+        effectiveSource = new LocalConcatStreamSource(concatPath);
+      } catch (err) {
+        this.logger.warn(
+          { err },
+          'Failed to build bumper concat, falling back to regular stream',
+        );
+      }
+    }
+
     const ffmpegOutStream = await ffmpeg.createStreamSession({
       stream: {
-        source,
+        source: effectiveSource,
         details,
       },
       options: {
-        startTime: start,
+        // For concat sources the seek is handled inside the concat file;
+        // pass zero so ffmpeg doesn't also seek on the input.
+        startTime:
+          effectiveSource instanceof LocalConcatStreamSource
+            ? dayjs.duration(0)
+            : start,
         duration: dayjs.duration(lineupItem.streamDuration),
         watermark: await this.getWatermark(),
         realtime: this.context.realtime,
@@ -128,9 +179,20 @@ export class LocalProgramStream extends ProgramStream {
     });
 
     if (isUndefined(ffmpegOutStream)) {
+      if (concatTmpDir) {
+        void rm(concatTmpDir, { recursive: true, force: true });
+      }
       return Result.forError(new Error('Unable to spawn ffmpeg'));
+    }
+
+    if (concatTmpDir) {
+      // Delete the temp concat file once ffmpeg exits (it only needs it at startup)
+      ffmpegOutStream.process.on('exit', () => {
+        void rm(concatTmpDir!, { recursive: true, force: true });
+      });
     }
 
     return Result.success(ffmpegOutStream);
   }
 }
+

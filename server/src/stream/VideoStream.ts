@@ -158,7 +158,7 @@ export class VideoStream {
             outputFormat,
           );
 
-          programStream.on('error', () => {
+          programStream.once('error', () => {
             this.logger.error(
               `Unrecoverable error in underlying FFMPEG process`,
             );

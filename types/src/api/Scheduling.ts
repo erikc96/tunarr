@@ -138,10 +138,10 @@ const InsertBumpersOperationSchema = BaseSchedulingOpertionSchema.extend({
   id: z.literal('insert_bumpers'),
   // UUID of the BumperPack to draw bumpers from
   packId: z.string().uuid(),
-  // How many bumpers to insert between each episode (default 1)
-  count: z.number().int().min(1).max(5).default(1),
-  // 'between' = between episodes only; 'within' = between + at channel start
-  placement: z.enum(['between', 'within']).default('between'),
+  // How many bumpers to insert between each episode (undefined = disabled)
+  betweenCount: z.number().int().min(1).max(5).optional(),
+  // How many times to interrupt each program with a bumper (undefined = disabled)
+  withinInterruptCount: z.number().int().min(1).max(5).optional(),
   allowMultiple: z.literal(false).default(false).optional(),
 });
 

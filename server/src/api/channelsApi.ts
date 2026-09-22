@@ -11,6 +11,7 @@ import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { timeNamedAsync } from '@/util/perf.js';
 import { seq } from '@tunarr/shared/util';
 import { type ChannelSession, type CreateChannelRequest } from '@tunarr/types';
+import { SchedulingOperationSchema } from '@tunarr/types/api';
 import {
   BasicIdParamSchema,
   BasicPagingSchema,
@@ -819,6 +820,56 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       return res.serializer(JSON.stringify).send({ schedule: result });
+    },
+  );
+
+  // GET scheduling operations for a channel
+  fastify.get(
+    '/channels/:id/scheduling-operations',
+    {
+      schema: {
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        response: {
+          200: z.object({ operations: SchedulingOperationSchema.array() }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (req, res) => {
+      const channel = await req.serverCtx.channelDB.getChannel(req.params.id);
+      if (!channel) return res.status(404).send({ error: 'Channel not found' });
+      const lineup = await req.serverCtx.channelDB.loadLineup(channel.uuid);
+      return res.send({ operations: lineup.schedulingOperations ?? [] });
+    },
+  );
+
+  // PUT (replace) scheduling operations for a channel
+  fastify.put(
+    '/channels/:id/scheduling-operations',
+    {
+      schema: {
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        body: z.object({ operations: SchedulingOperationSchema.array() }),
+        response: {
+          200: z.object({ operations: SchedulingOperationSchema.array() }),
+          404: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (req, res) => {
+      const channel = await req.serverCtx.channelDB.getChannel(req.params.id);
+      if (!channel) return res.status(404).send({ error: 'Channel not found' });
+
+      // Save the operations first
+      await req.serverCtx.channelDB.updateLineupConfig(
+        channel.uuid,
+        'schedulingOperations',
+        req.body.operations,
+      );
+
+      return res.send({ operations: req.body.operations });
     },
   );
 };

@@ -278,6 +278,24 @@ export class ProgramDB implements IProgramDB {
     });
   }
 
+  /**
+   * Slim program fetch for the streaming hot path. Loads only the scalar
+   * fields and externalIds needed to route to the correct stream handler.
+   * Heavy relations (artwork, subtitles, credits, versions) are omitted to
+   * reduce per-stream memory allocation. Stream handlers that need full
+   * version data (e.g. LocalProgramStream) re-fetch via getProgramById.
+   */
+  async getProgramForStream(
+    id: string,
+  ): Promise<Maybe<MarkRequired<ProgramWithRelationsOrm, 'externalIds'>>> {
+    return this.drizzleDB.query.program.findFirst({
+      where: (fields, { eq }) => eq(fields.uuid, id),
+      with: {
+        externalIds: true,
+      },
+    }) as Promise<Maybe<MarkRequired<ProgramWithRelationsOrm, 'externalIds'>>>;
+  }
+
   async getProgramExternalIds(
     id: string,
     externalIdTypes?: ProgramExternalIdType[],

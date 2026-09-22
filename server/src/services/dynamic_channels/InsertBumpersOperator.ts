@@ -42,9 +42,10 @@ export class InsertBumpersOperator extends SchedulingOperator<InsertBumpersOpera
     const items = [...lineup.items];
     const result: LineupItem[] = [];
 
-    // Optionally insert a bumper at the channel start
-    if (this.config.placement === 'within') {
-      result.push(nextBumper());
+    // withinInterruptCount = handled at stream time (mid-program concat);
+    // nothing to do at the lineup level if betweenCount is not set.
+    if (!this.config.betweenCount) {
+      return { channel, lineup };
     }
 
     let episodeCount = 0;
@@ -59,7 +60,7 @@ export class InsertBumpersOperator extends SchedulingOperator<InsertBumpersOpera
       // Only insert between content items (not after offline/redirect)
       if (item.type === 'content') {
         episodeCount++;
-        if (episodeCount % this.config.count === 0) {
+        if (episodeCount % this.config.betweenCount === 0) {
           result.push(nextBumper());
         }
       }

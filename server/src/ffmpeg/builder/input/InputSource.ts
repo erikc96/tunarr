@@ -1,5 +1,6 @@
 import type { MediaStream } from '@/ffmpeg/builder/MediaStream.js';
 import { HttpHeadersInputOption } from '@/ffmpeg/builder/options/input/HttpHeadersInputOption.js';
+import { LocalConcatFormatOption } from '@/ffmpeg/builder/options/input/LocalConcatFormatOption.js';
 import type { InputOption } from '@/ffmpeg/builder/options/input/InputOption.js';
 import type { HasFilterOption } from '@/ffmpeg/builder/types/PipelineStep.js';
 import { flatMap } from 'lodash-es';
@@ -9,6 +10,7 @@ import type {
   FilterStreamSource,
   HttpStreamSource,
 } from '../../../stream/types.ts';
+import { LocalConcatStreamSource } from '../../../stream/types.ts';
 import type { Nullable } from '../../../types/util.ts';
 import type { FilterOption } from '../filter/FilterOption.ts';
 import type { VideoInputSource } from './VideoInputSource.ts';
@@ -42,6 +44,8 @@ export abstract class InputSource<
 
     if (this.source.type === 'http') {
       this.addOptions(new HttpHeadersInputOption());
+    } else if (this.source instanceof LocalConcatStreamSource) {
+      this.addOptions(new LocalConcatFormatOption());
     }
   }
 

@@ -1,19 +1,23 @@
 import { ChannelOrm } from '@/db/schema/Channel.js';
 import type { ProgramWithRelations as RawProgramEntity } from '@/db/schema/derivedTypes.js';
+import { BumperDB } from '@/services/bumpers/BumperDB.js';
 import { KEYS } from '@/types/inject.js';
 import { Result } from '@/types/result.js';
 import { Maybe, Nullable } from '@/types/util.js';
 import { binarySearchRange } from '@/util/binarySearch.js';
 import { type Logger } from '@/util/logging/LoggerFactory.js';
 import constants from '@tunarr/shared/constants';
+import type { SchedulingOperation } from '@tunarr/types/api';
 import dayjs from 'dayjs';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, optional } from 'inversify';
 import { first, isEmpty, isNil, isNull, sumBy } from 'lodash-es';
 import { Lineup } from '../db/derived_types/Lineup.ts';
 import {
   CommercialStreamLineupItem,
+  PrependBumperInfo,
   ProgramStreamLineupItem,
   StreamLineupItem,
+  WithinBumperSegment,
   createOfflineStreamLineupItem,
 } from '../db/derived_types/StreamLineup.ts';
 import { IChannelDB } from '../db/interfaces/IChannelDB.ts';
@@ -75,6 +79,7 @@ export class StreamProgramCalculator {
     @inject(KEYS.ChannelCache) private channelCache: IStreamLineupCache,
     @inject(KEYS.ProgramDB) private programDB: IProgramDB,
     @inject(KEYS.FillerPicker) private fillerPicker: IFillerPicker,
+    @optional() @inject(BumperDB) private bumperDB: BumperDB | undefined,
   ) {}
 
   async getCurrentLineupItem(
@@ -225,6 +230,8 @@ export class StreamProgramCalculator {
         currentProgram,
         streamDuration,
         channelContext,
+        lineup.schedulingOperations ?? [],
+        currentProgram.programIndex,
       );
     }
 
@@ -287,8 +294,9 @@ export class StreamProgramCalculator {
     let program: StreamLineupItem;
     switch (lineupItem.type) {
       case 'content': {
-        // Defer program lookup
-        const backingItem = await this.programDB.getProgramById(lineupItem.id);
+        // Slim fetch — only scalars + externalIds, no artwork/subtitles/credits/versions.
+        // Stream handlers that need full version data (LocalProgramStream) re-fetch themselves.
+        const backingItem = await this.programDB.getProgramForStream(lineupItem.id);
         program = {
           duration: lineupItem.durationMs,
           type: 'offline',
@@ -360,9 +368,11 @@ export class StreamProgramCalculator {
   // 2b. If no fillter content is found, then pad with more offline time
   // 3. Return the currently playing "real" program
   async createLineupItem(
-    { program, timeElapsed }: ProgramAndTimeElapsed,
+    { program, timeElapsed, programIndex }: ProgramAndTimeElapsed,
     streamDuration: number,
     channel: ChannelOrm,
+    schedulingOperations: SchedulingOperation[] = [],
+    resolvedProgramIndex: number = programIndex,
   ): Promise<StreamLineupItem> {
     if (program.type === 'redirect') {
       throw new Error(
@@ -491,11 +501,93 @@ export class StreamProgramCalculator {
       };
     }
 
-    return {
+    let showStartOffset = timeElapsed;
+    let prependBumper: PrependBumperInfo | undefined;
+
+    // Resolve both bumper types in parallel and share pack fetches by packId.
+    const [betweenBumper, withinBumpers] = await Promise.all([
+      this.resolveBetweenBumper(schedulingOperations, resolvedProgramIndex),
+      this.resolveWithinBumpers(schedulingOperations, program.duration),
+    ]);
+
+    if (betweenBumper) {
+      const { path, durationMs } = betweenBumper;
+      if (timeElapsed < durationMs) {
+        // Still in the bumper's time window — show starts from the beginning.
+        prependBumper = { path, durationMs, startOffset: timeElapsed };
+        showStartOffset = 0;
+      } else {
+        // Bumper already played — skip ahead in the show by the bumper length.
+        showStartOffset = timeElapsed - durationMs;
+      }
+    }
+
+    const lineupItem: ProgramStreamLineupItem = {
       ...program,
       type: 'program',
-      startOffset: timeElapsed,
+      startOffset: showStartOffset,
       streamDuration,
+    };
+
+    if (prependBumper) {
+      lineupItem.prependBumper = prependBumper;
+    }
+
+    if (withinBumpers) {
+      lineupItem.withinBumpers = withinBumpers;
+    }
+
+    return lineupItem;
+  }
+
+  private async resolveBetweenBumper(
+    ops: SchedulingOperation[],
+    programIndex: number,
+  ): Promise<{ path: string; durationMs: number } | undefined> {
+    if (!this.bumperDB || programIndex <= 0) return undefined;
+
+    const op = ops.find(
+      (o) =>
+        o.id === 'insert_bumpers' &&
+        (o as { betweenCount?: number }).betweenCount != null,
+    );
+    if (!op || op.id !== 'insert_bumpers' || !op.betweenCount) return undefined;
+
+    if (programIndex % op.betweenCount !== 0) return undefined;
+
+    const pack = await this.bumperDB.getPackById(op.packId);
+    if (!pack || pack.files.length === 0) return undefined;
+
+    const file = pack.files[programIndex % pack.files.length]!;
+    return { path: file.path, durationMs: file.durationMs };
+  }
+
+  private async resolveWithinBumpers(
+    ops: SchedulingOperation[],
+    programDurationMs: number,
+  ): Promise<WithinBumperSegment | undefined> {
+    if (!this.bumperDB) return undefined;
+
+    const op = ops.find(
+      (o) =>
+        o.id === 'insert_bumpers' &&
+        (o as { withinInterruptCount?: number }).withinInterruptCount != null,
+    );
+    if (!op || op.id !== 'insert_bumpers' || !op.withinInterruptCount) {
+      return undefined;
+    }
+
+    const pack = await this.bumperDB.getPackById(op.packId);
+    if (!pack || pack.files.length === 0) return undefined;
+
+    // Divide the program into (withinInterruptCount + 1) equal segments
+    const intervalMs = Math.floor(
+      programDurationMs / (op.withinInterruptCount + 1),
+    );
+
+    return {
+      intervalMs,
+      files: pack.files.map((f) => ({ path: f.path, durationMs: f.durationMs })),
     };
   }
 }

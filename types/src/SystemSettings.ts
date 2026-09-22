@@ -57,7 +57,9 @@ export const CacheSettingsSchema = z.object({
 export type CacheSettings = z.infer<typeof CacheSettingsSchema>;
 
 export const SearchServerSettingsSchema = z.object({
-  maxIndexingMemory: z.number().optional(),
+  // Bytes passed to meilisearch's --max-indexing-memory flag.
+  // Default 256 MB (268435456 bytes) to prevent RSS runaway on low-memory hosts.
+  maxIndexingMemory: z.number().default(268435456),
   snapshotIntervalHours: z.number().default(4),
 });
 
@@ -71,6 +73,7 @@ export type ServerSettings = z.infer<typeof ServerSettingsSchema>;
 export const DefaultServerSettings = {
   port: 8000,
   searchSettings: {
+    maxIndexingMemory: 268435456,
     snapshotIntervalHours: 4,
   },
 } satisfies ServerSettings;

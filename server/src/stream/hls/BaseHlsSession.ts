@@ -161,10 +161,12 @@ export abstract class BaseHlsSession<
           }
         },
         {
-          retries: 15,
+          // Poll often so the stream is handed over as soon as it's ready;
+          // same ~15s ceiling as before.
+          retries: 60,
           factor: 1,
-          minTimeout: 1000,
-          maxTimeout: 1000,
+          minTimeout: 250,
+          maxTimeout: 250,
           randomize: false,
         },
       );

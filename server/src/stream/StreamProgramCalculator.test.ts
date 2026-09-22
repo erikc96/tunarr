@@ -50,7 +50,7 @@ describe('StreamProgramCalculator', () => {
       },
     ];
 
-    when(programDB.getProgramById(programId1)).thenReturn(
+    when(programDB.getProgramForStream(programId1)).thenReturn(
       Promise.resolve(
         createFakeProgram({
           uuid: programId1,
@@ -60,7 +60,7 @@ describe('StreamProgramCalculator', () => {
       ),
     );
 
-    when(programDB.getProgramById(programId2)).thenReturn(
+    when(programDB.getProgramForStream(programId2)).thenReturn(
       Promise.resolve(
         createFakeProgram({
           uuid: programId2,
@@ -147,7 +147,7 @@ describe('StreamProgramCalculator', () => {
       },
     ];
 
-    when(programDB.getProgramById(programId1)).thenReturn(
+    when(programDB.getProgramForStream(programId1)).thenReturn(
       Promise.resolve(
         createFakeProgram({
           uuid: programId1,
@@ -157,7 +157,7 @@ describe('StreamProgramCalculator', () => {
       ),
     );
 
-    when(programDB.getProgramById(programId2)).thenReturn(
+    when(programDB.getProgramForStream(programId2)).thenReturn(
       Promise.resolve(
         createFakeProgram({
           uuid: programId2,
@@ -246,7 +246,7 @@ describe('StreamProgramCalculator', () => {
       },
     ];
 
-    when(programDB.getProgramById(programId1)).thenReturn(
+    when(programDB.getProgramForStream(programId1)).thenReturn(
       Promise.resolve(
         createFakeProgram({
           uuid: programId1,
@@ -256,7 +256,7 @@ describe('StreamProgramCalculator', () => {
       ),
     );
 
-    when(programDB.getProgramById(programId2)).thenReturn(
+    when(programDB.getProgramForStream(programId2)).thenReturn(
       Promise.resolve(
         createFakeProgram({
           uuid: programId2,

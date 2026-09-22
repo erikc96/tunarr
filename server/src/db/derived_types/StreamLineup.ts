@@ -133,8 +133,22 @@ export type CommercialStreamLineupItem = BaseContentBackedStreamLineupItem & {
   fillerId: string;
 };
 
+export type WithinBumperSegment = {
+  intervalMs: number;
+  files: Array<{ path: string; durationMs: number }>;
+};
+
+export type PrependBumperInfo = {
+  path: string;
+  durationMs: number;
+  /** How far into the bumper we already are (for mid-bumper tune-in). */
+  startOffset: number;
+};
+
 export type ProgramStreamLineupItem = BaseContentBackedStreamLineupItem & {
   type: 'program';
+  withinBumpers?: WithinBumperSegment;
+  prependBumper?: PrependBumperInfo;
 };
 
 export type RedirectStreamLineupItem = BaseStreamLineupItem & {

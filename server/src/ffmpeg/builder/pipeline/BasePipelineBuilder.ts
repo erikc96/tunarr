@@ -77,6 +77,7 @@ import { Libx264Encoder } from '../encoder/Libx264Encoder.ts';
 import { Libx265Encoder } from '../encoder/Libx265Encoder.ts';
 import { Mpeg2VideoEncoder } from '../encoder/Mpeg2VideoEncoder.ts';
 import { RawVideoEncoder } from '../encoder/RawVideoEncoder.ts';
+import { LocalConcatStreamSource } from '@/stream/types.js';
 import { AudioVolumeFilter } from '../filter/AudioVolumeFilter.ts';
 import type { FilterOption } from '../filter/FilterOption.ts';
 import { StreamSeekFilter } from '../filter/StreamSeekFilter.ts';
@@ -241,7 +242,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
 
     input.addOptions(
       new ConcatInputFormatOption(),
-      new ReadrateInputOption(this.ffmpegCapabilities, 0),
+      // Burst the first seconds so a new viewer gets a keyframe right away.
+      new ReadrateInputOption(this.ffmpegCapabilities, 4),
       new InfiniteLoopInputOption(),
       new UserAgentInputOption(`Ffmpeg Tunarr/${getTunarrVersion()}`),
     );
@@ -291,7 +293,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       input.addOption(new ConcatHttpReconnectOptions());
     }
 
-    input.addOption(new ReadrateInputOption(this.ffmpegCapabilities, 0));
+    // Burst the first seconds so a new viewer gets a keyframe right away.
+    input.addOption(new ReadrateInputOption(this.ffmpegCapabilities, 4));
     if (state.metadataServiceName) {
       pipelineSteps.push(
         MetadataServiceNameOutputOption(state.metadataServiceName),
@@ -689,6 +692,16 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
   protected setupDecoder(): Nullable<Decoder> {
     let decoder: Nullable<Decoder> = null;
     if (isVideoPipelineContext(this.context)) {
+      // Don't apply a codec-specific decoder hint for local concat inputs —
+      // the concat demuxer opens each referenced file independently and will
+      // auto-detect the codec per-segment. Forcing a single codec here breaks
+      // concat files that mix codecs (e.g. h264 show + any-codec bumpers).
+      if (this.videoInputSource.source instanceof LocalConcatStreamSource) {
+        decoder = new ImplicitDecoder();
+        this.videoInputSource.addOption(decoder);
+        this.decoder = decoder;
+        return decoder;
+      }
       decoder = match(this.context.videoStream.codec)
         .with(VideoFormats.H264, () => new H264Decoder())
         .with(VideoFormats.Hevc, () => new HevcDecoder())
@@ -801,8 +814,9 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               this.ffmpegState.hlsBaseStreamUrl,
               isNil(this.ffmpegState.ptsOffset) ||
                 this.ffmpegState.ptsOffset === 0,
-              this.ffmpegState.encoderHwAccelMode ===
-                HardwareAccelerationMode.Qsv,
+              // 1s GOPs (not just for QSV) so a viewer joining mid-stream
+              // never waits long for a keyframe.
+              true,
             ),
           );
         }

@@ -74,7 +74,7 @@ export class ChannelGenerator {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMsg },
       ],
-      { responseFormat: 'json', temperature: 0.7 },
+      { responseFormat: 'json' },
     );
 
     let parsed: {

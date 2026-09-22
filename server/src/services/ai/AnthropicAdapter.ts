@@ -10,7 +10,6 @@ const logger = LoggerFactory.child({
 
 interface CompleteOptions {
   responseFormat?: 'json' | 'text';
-  temperature?: number;
 }
 
 interface ChatMessage {
@@ -39,7 +38,6 @@ export class AnthropicAdapter {
     const response = await client.messages.create({
       model: settings.model,
       max_tokens: maxTokens,
-      temperature: opts.temperature ?? 0.7,
       system: systemText || undefined,
       messages: nonSystemMessages.map((m) => ({
         role: m.role as 'user' | 'assistant',
@@ -47,7 +45,8 @@ export class AnthropicAdapter {
       })),
     });
 
-    const block = response.content[0];
+    // Newer models can lead with a thinking block; take the first text block.
+    const block = response.content.find((b) => b.type === 'text');
     if (!block || block.type !== 'text') throw new Error('Unexpected response type');
     let text = block.text;
 

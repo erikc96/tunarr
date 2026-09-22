@@ -102,6 +102,13 @@ export class FileStreamSource implements IStreamSource {
   constructor(public path: string) {}
 }
 
+// Used for local ffconcat files that interleave program segments with bumpers.
+// Extends FileStreamSource so it passes 'file' type checks in the pipeline,
+// but triggers special handling to add -f concat -safe 0 input options.
+export class LocalConcatStreamSource extends FileStreamSource {
+  readonly isLocalConcat = true as const;
+}
+
 export class FilterStreamSource implements IStreamSource {
   readonly type = 'filter' as const;
   constructor(public path: string) {}

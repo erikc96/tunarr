@@ -2,7 +2,7 @@ import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import {
   AiSettingsPublicSchema,
-  AiSettingsSchema,
+  AiSettingsUpdateSchema,
   AiGenerateChannelRequestSchema,
   AiRefreshChannelRequestSchema,
   AiAddProgramsRequestSchema,
@@ -52,7 +52,7 @@ export const aiApiRouter: RouterPluginAsyncCallback = async (fastify) => {
     {
       schema: {
         tags: ['AI'],
-        body: AiSettingsSchema.partial(),
+        body: AiSettingsUpdateSchema,
         response: { 200: AiSettingsPublicSchema },
       },
     },
@@ -409,9 +409,25 @@ export const aiApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           .join('\n');
 
         const systemPrompt = [
-          'You are a TV channel curator for Tunarr. You help manage TV channels from a media library.',
-          '\nLibrary overview:\n' + stats,
-          channelList ? '\n\nExisting channels:\n' + channelList : '',
+          'You are a TV channel curator for Tunarr, a live TV channel creation platform.',
+          'You help users manage their TV channels and create new ones from their media library.',
+          '',
+          '## YOUR CAPABILITIES',
+          'You CAN create new channels. When the user asks you to create a channel (e.g. "create a 90s sitcom channel", "make me a horror movie channel", "build a cartoon channel"), you MUST respond with an action block.',
+          '',
+          '## ACTION FORMAT',
+          'To create a channel, include this EXACT block in your response:',
+          '<action>{"type":"create_channel","prompt":"<detailed description of the channel theme, content, and mood>"}</action>',
+          'Then follow it with a short friendly explanation of what you are creating.',
+          'Example: <action>{"type":"create_channel","prompt":"90s sitcoms like Friends, Seinfeld, and Frasier — feel-good comedies from the 1990s"}</action> I\'ll create a 90s sitcom channel for you!',
+          '',
+          '## IMPORTANT',
+          '- ALWAYS use the action block when the user asks to create or build a channel. Never just describe what you would create — actually trigger it.',
+          '- Only one action block per response.',
+          '- For questions about the library, recommendations, or general chat, respond normally without an action block.',
+          '',
+          'Library overview:\n' + stats,
+          channelList ? '\nExisting channels:\n' + channelList : '',
         ].join('\n');
 
         const fullMessages = [
@@ -419,9 +435,7 @@ export const aiApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           ...req.body.messages,
         ];
 
-        const response = await adapter.complete(fullMessages, {
-          temperature: 0.7,
-        });
+        const response = await adapter.complete(fullMessages);
         return res.send({ message: response });
       } catch (err: unknown) {
         logger.error(err, 'Error in AI chat');

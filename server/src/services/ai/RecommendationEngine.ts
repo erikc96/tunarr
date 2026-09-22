@@ -51,7 +51,7 @@ export class RecommendationEngine {
         },
         { role: 'user', content: userMsg },
       ],
-      { responseFormat: 'json', temperature: 0.8 },
+      { responseFormat: 'json' },
     );
 
     try {

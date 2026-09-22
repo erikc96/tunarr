@@ -58,6 +58,17 @@ class Connection {
     this.sqlite.pragma('mmap_size = 268435456');
     this.sqlite.pragma('foreign_keys = ON');
 
+    // Periodically checkpoint the WAL to prevent progressive query slowdown.
+    // PASSIVE mode: checkpoints what it can without blocking active readers/writers.
+    const walCheckpoint = setInterval(() => {
+      try {
+        this.sqlite.pragma('wal_checkpoint(PASSIVE)');
+      } catch {
+        // Ignore errors during checkpoint (e.g., database closed)
+      }
+    }, 5 * 60 * 1000);
+    walCheckpoint.unref();
+
     this.kysely = new Kysely<DB>({
       dialect: new SqliteDialect({
         database: this.sqlite,

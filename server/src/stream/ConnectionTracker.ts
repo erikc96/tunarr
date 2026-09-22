@@ -95,3 +95,13 @@ export class ConnectionTracker<
     return true;
   }
 }
+
+/**
+ * Keys of the longest-idle sessions that push the idle count past max.
+ */
+export function sessionsToEvict<K>(idleSince: Map<K, number>, max: number) {
+  const oldestFirst = [...idleSince.entries()].sort((a, b) => a[1] - b[1]);
+  return oldestFirst
+    .slice(0, Math.max(0, oldestFirst.length - max))
+    .map(([key]) => key);
+}
