@@ -66,6 +66,32 @@ import type {
 import { IFFMPEG } from './ffmpegBase.ts';
 import type { FfmpegInfo } from './ffmpegInfo.ts';
 
+// TUNARR_LIVE_CHANNELS='{"14":"http://127.0.0.1:8210/lofi"}' maps a channel
+// number to a live stream URL that replaces whatever the channel schedules.
+// ponytail: env-only config; move to a channel setting if more than a couple.
+let liveChannels: Maybe<Record<string, string>>;
+export function liveChannelUrl(channelNumber: number): Maybe<string> {
+  if (isUndefined(liveChannels)) {
+    try {
+      const parsed: unknown = JSON.parse(
+        process.env.TUNARR_LIVE_CHANNELS ?? '{}',
+      );
+      liveChannels = {};
+      if (parsed && typeof parsed === 'object') {
+        for (const [k, v] of Object.entries(parsed)) {
+          if (typeof v === 'string') liveChannels[k] = v;
+        }
+      }
+    } catch {
+      LoggerFactory.child({ className: 'liveChannelUrl' }).warn(
+        'TUNARR_LIVE_CHANNELS is not valid JSON; ignoring',
+      );
+      liveChannels = {};
+    }
+  }
+  return liveChannels[String(channelNumber)];
+}
+
 export class FfmpegStreamFactory extends IFFMPEG {
   private logger = LoggerFactory.child({ className: FfmpegStreamFactory.name });
 
@@ -296,6 +322,17 @@ export class FfmpegStreamFactory extends IFFMPEG {
     },
     lineupItem,
   }: StreamSessionCreateArgs): Promise<Maybe<FfmpegTranscodeSession>> {
+    // Live channels: the scheduled program is only a placeholder for the
+    // guide; play the configured live URL instead, from its live edge.
+    // ponytail: streamDetails still describe the placeholder file, so the
+    // placeholder must share the live stream's layout (video 0 + audio 1, no
+    // subs). Probe the live input instead if that ever stops holding.
+    const liveUrl = liveChannelUrl(this.channel.number);
+    if (liveUrl) {
+      streamSource = new HttpStreamSource(liveUrl);
+      startTime = dayjs.duration(0);
+    }
+
     if (streamSource.type !== 'http' && streamSource.type !== 'file') {
       throw new Error('Unsupported stream source format: ' + streamSource.type);
     }
