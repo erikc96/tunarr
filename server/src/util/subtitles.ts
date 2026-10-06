@@ -49,7 +49,13 @@ function getSubtitleCacheFileName(
     .update(program.externalSourceType)
     .update(program.externalSourceId)
     .update(program.externalKey)
-    .update(subtitleStream.index?.toString() ?? '')
+    // External streams have no index; key them by their source URL (sans query,
+    // which can carry an auth token) so each language gets its own cache file.
+    .update(
+      subtitleStream.index?.toString() ??
+        subtitleStream.path?.split('?')[0] ??
+        '',
+    )
     .update(subtitleStream.codec)
     .digest('hex');
 }
