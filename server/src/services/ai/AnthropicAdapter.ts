@@ -28,7 +28,9 @@ export class AnthropicAdapter {
     const settings = await this.settingsDB.get();
     if (!settings.apiKey) throw new Error('Anthropic API key not configured');
 
-    const client = new Anthropic({ apiKey: settings.apiKey });
+    // maxRetries: the Whatbox box drops many connections to api.anthropic.com (2026-09-23),
+    // and the SDK default of 2 retries gave up on most channel builds.
+    const client = new Anthropic({ apiKey: settings.apiKey, maxRetries: 8 });
 
     const systemMessages = messages.filter((m) => m.role === 'system');
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
@@ -66,7 +68,9 @@ export class AnthropicAdapter {
       const settings = await this.settingsDB.get();
       if (!settings.apiKey) return { ok: false, model: '', error: 'No API key' };
 
-      const client = new Anthropic({ apiKey: settings.apiKey });
+      // maxRetries: the Whatbox box drops many connections to api.anthropic.com (2026-09-23),
+      // and the SDK default of 2 retries gave up on most channel builds.
+      const client = new Anthropic({ apiKey: settings.apiKey, maxRetries: 8 });
       await client.messages.create({
         model: settings.model,
         max_tokens: 10,

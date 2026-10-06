@@ -159,7 +159,8 @@ export class ContextBuilder {
     if (opts.search) {
       const cond = or(
         like(Program.title, `%${opts.search}%`),
-        like(Program.showTitle, `%${opts.search}%`),
+        // Plex box sets leave showTitle empty; the show name lives on the grouping.
+        sql`COALESCE(${Program.showTitle}, ${ProgramGrouping.title}) LIKE ${`%${opts.search}%`}`,
       );
       if (cond) conditions.push(cond);
     }
