@@ -1,5 +1,6 @@
 import type { Channel } from '@/db/schema/Channel.js';
 import type { BaseHlsSession } from '@/stream/hls/BaseHlsSession.js';
+import type { ConcatSessionOptions } from '@/stream/ConcatSession.js';
 import { HlsPlaylistCreator } from '@/stream/hls/HlsPlaylistCreator.js';
 import type { Result } from '@/types/result.js';
 import { TruthyQueryParam } from '@/types/schemas.js';
@@ -20,6 +21,20 @@ import { format } from 'node:util';
 import { match } from 'ts-pattern';
 import { v4 } from 'uuid';
 import z from 'zod/v4';
+
+export const ChannelTsQuerySchema = z.object({
+  streamMode: ChannelStreamModeSchema.optional(),
+  quality: z.enum(['high', 'low']).optional(),
+  token: z.uuid().optional(),
+  audioOnly: TruthyQueryParam.optional().default(false),
+});
+
+export function concatSessionTypeForQuality(
+  mode: z.infer<typeof ChannelStreamModeSchema>,
+  quality: 'high' | 'low' | undefined,
+): ConcatSessionOptions['sessionType'] {
+  return quality === 'low' ? `${mode}_concat_low` : `${mode}_concat`;
+}
 
 export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
   const logger = LoggerFactory.child({
@@ -101,11 +116,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         params: z.object({
           id: z.coerce.number().or(z.uuid()),
         }),
-        querystring: z.object({
-          streamMode: ChannelStreamModeSchema.optional(),
-          token: z.uuid().optional(),
-          audioOnly: TruthyQueryParam.optional().default(false),
-        }),
+        querystring: ChannelTsQuerySchema,
       },
       onError(_req, _res, err, done) {
         console.error(err);
@@ -133,7 +144,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           },
           {
             audioOnly: req.query.audioOnly,
-            sessionType: `${mode}_concat`,
+            sessionType: concatSessionTypeForQuality(mode, req.query.quality),
           },
         );
 

@@ -32,7 +32,12 @@ export type HlsSessionType = StrictExtract<
 export type HlsConcatSessionType =
   `${HlsSessionType}${typeof ConcatSessionSuffix}`;
 
-export type SessionType = ChannelStreamMode | ChannelConcatStreamMode;
+export type LowQualityConcatSessionType = `${ChannelConcatStreamMode}_low`;
+
+export type SessionType =
+  | ChannelStreamMode
+  | ChannelConcatStreamMode
+  | LowQualityConcatSessionType;
 
 // TODO: sort these all out.... and write docs
 type StreamSessionEvents = {
@@ -212,9 +217,12 @@ export abstract class Session<
   }
 
   isConcatSession(): this is Omit<Session, 'sessionType'> & {
-    sessionType: ChannelConcatStreamMode;
+    sessionType: ChannelConcatStreamMode | LowQualityConcatSessionType;
   } {
-    return this.sessionType.endsWith(ConcatSessionSuffix);
+    return (
+      this.sessionType.endsWith(ConcatSessionSuffix) ||
+      this.sessionType.endsWith(`${ConcatSessionSuffix}_low`)
+    );
   }
 
   addConnection(token: string, connection: StreamConnectionDetails) {

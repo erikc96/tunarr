@@ -3,12 +3,14 @@ import { EmptyFfmpegCapabilities } from '../capabilities/FfmpegCapabilities.ts';
 import { AudioVolumeFilter } from '../filter/AudioVolumeFilter.ts';
 import { PixelFormatYuv420P } from '../format/PixelFormat.ts';
 import { AudioInputSource } from '../input/AudioInputSource.ts';
+import { ConcatInputSource } from '../input/ConcatInputSource.ts';
 import { VideoInputSource } from '../input/VideoInputSource.ts';
 import { AudioStream, VideoStream } from '../MediaStream.ts';
 import { AudioState } from '../state/AudioState.ts';
 import { DefaultPipelineOptions, FfmpegState } from '../state/FfmpegState.ts';
 import { FrameState } from '../state/FrameState.ts';
 import { FrameSize } from '../types.ts';
+import { HttpStreamSource } from '../../../stream/types.ts';
 import { BasePipelineBuilder } from './BasePipelineBuilder.ts';
 
 class NoopPipelineBuilder extends BasePipelineBuilder {
@@ -126,5 +128,45 @@ describe('BasePipelineBuilder', () => {
     );
 
     expect(volumeFilter).toBeUndefined();
+  });
+
+  test('uses the copy wrapper unchanged unless low quality is requested', () => {
+    const input = new ConcatInputSource(
+      new HttpStreamSource('http://localhost/channel.m3u8'),
+      FrameSize.FHD,
+    );
+    const builder = new NoopPipelineBuilder(
+      null,
+      null,
+      null,
+      null,
+      null,
+      EmptyFfmpegCapabilities,
+    );
+
+    const highArgs = builder.hlsWrap(input, state).getCommandArgs();
+    const lowArgs = builder
+      .hlsWrap(input, state, { quality: 'low' })
+      .getCommandArgs();
+
+    expect(highArgs).toContain('-c');
+    expect(highArgs).toContain('copy');
+    expect(highArgs).not.toContain('-vf');
+    expect(lowArgs).toEqual(
+      expect.arrayContaining([
+        '-c:v',
+        'libx264',
+        '-preset:v',
+        'veryfast',
+        '-vf',
+        'scale=w=min(854\\,iw):h=min(480\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2',
+        '-b:v',
+        '1200k',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '96k',
+      ]),
+    );
   });
 });

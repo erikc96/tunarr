@@ -185,6 +185,7 @@ export class FfmpegStreamFactory extends IFFMPEG {
         this.channel.name,
         opts.outputFormat,
       ),
+      { quality: opts.quality },
     );
 
     return new FfmpegTranscodeSession(

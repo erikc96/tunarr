@@ -303,7 +303,10 @@ export type StreamConnectionDetails = z.infer<
 
 export const ChannelSessionsResponseSchema = z.object({
   // TODO: Share types with session
-  type: z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
+  type: z.union([
+    z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
+    z.templateLiteral([z.enum(ChannelConcatStreamModes), z.literal('_low')]),
+  ]),
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),

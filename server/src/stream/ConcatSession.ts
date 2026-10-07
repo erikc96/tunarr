@@ -4,10 +4,10 @@ import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
 import { isEmpty } from 'lodash-es';
 import type { ConcatStreamFactory } from './ConcatStream.ts';
 import { DirectStreamSession } from './DirectStreamSession.js';
-import type { SessionOptions } from './Session.js';
+import type { LowQualityConcatSessionType, SessionOptions } from './Session.js';
 
 export type ConcatSessionOptions = SessionOptions & {
-  sessionType: ChannelConcatStreamMode;
+  sessionType: ChannelConcatStreamMode | LowQualityConcatSessionType;
   audioOnly: boolean;
 };
 

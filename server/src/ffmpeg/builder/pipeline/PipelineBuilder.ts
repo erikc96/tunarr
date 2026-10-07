@@ -24,7 +24,11 @@ export interface PipelineBuilder {
    * @param input
    * @param state
    */
-  hlsWrap(input: ConcatInputSource, state: FfmpegState): Pipeline;
+  hlsWrap(
+    input: ConcatInputSource,
+    state: FfmpegState,
+    options?: { quality?: 'low' },
+  ): Pipeline;
 
   /**
    * Calculates an ffmpeg pipeline using the inputted ffmpeg state and desired

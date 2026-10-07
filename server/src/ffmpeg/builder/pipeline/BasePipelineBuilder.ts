@@ -115,6 +115,7 @@ import {
   VideoBitrateOutputOption,
   VideoBufferSizeOutputOption,
   VideoTrackTimescaleOutputOption,
+  makeConstantOutputOption,
 } from '../options/OutputOption.ts';
 import { FrameRateOutputOption } from '../options/output/FrameRateOutputOption.ts';
 import { Pipeline } from './Pipeline.ts';
@@ -277,7 +278,11 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
     });
   }
 
-  hlsWrap(input: ConcatInputSource, state: FfmpegState) {
+  hlsWrap(
+    input: ConcatInputSource,
+    state: FfmpegState,
+    options?: { quality?: 'low' },
+  ) {
     const pipelineSteps: PipelineStep[] = [
       new NoStdInOption(),
       new HideBannerOption(),
@@ -286,7 +291,26 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       new NoStatsOption(),
       new StandardFormatFlags(),
       MapAllStreamsOutputOption(),
-      new CopyAllEncoder(),
+      ...(options?.quality === 'low'
+        ? [
+            new Libx264Encoder(null, 'veryfast'),
+            new AudioEncoder('aac'),
+            makeConstantOutputOption([
+              '-vf',
+              'scale=w=min(854\\,iw):h=min(480\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2',
+              '-tune:v',
+              'zerolatency',
+              '-force_key_frames:v',
+              'expr:gte(t,n_forced*2)',
+              '-g:v',
+              '60',
+              '-ac',
+              '2',
+            ]),
+            VideoBitrateOutputOption(1200),
+            AudioBitrateOutputOption(96),
+          ]
+        : [new CopyAllEncoder()]),
     ];
 
     if (input.protocol === 'http') {
