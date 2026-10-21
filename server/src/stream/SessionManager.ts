@@ -536,7 +536,7 @@ export class SessionManager {
 function sessionTypeFromConcatType(
   typ: ConcatSessionOptions['sessionType'],
 ): ChannelStreamMode {
-  return initial(typ.replace(/_low$/, '').split('_')).join(
+  return initial(typ.replace(/_(low|fire)$/, '').split('_')).join(
     '_',
   ) as ChannelStreamMode;
 }

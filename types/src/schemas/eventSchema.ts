@@ -59,7 +59,10 @@ export const StreamSessionEventSchema = BaseEventSchema.extend({
     channelId: z.string().uuid(),
     sessionType: z.union([
       z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
-      z.templateLiteral([z.enum(ChannelConcatStreamModes), z.literal('_low')]),
+      z.templateLiteral([
+        z.enum(ChannelConcatStreamModes),
+        z.enum(['_low', '_fire']),
+      ]),
     ]),
   }),
 });

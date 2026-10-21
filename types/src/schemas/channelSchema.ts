@@ -111,7 +111,10 @@ export const StreamConnectionDetailsSchema = z.object({
 export const ChannelSessionSchema = z.object({
   type: z.union([
     z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
-    z.templateLiteral([z.enum(ChannelConcatStreamModes), z.literal('_low')]),
+    z.templateLiteral([
+      z.enum(ChannelConcatStreamModes),
+      z.enum(['_low', '_fire']),
+    ]),
   ]),
   state: z.string(),
   numConnections: z.number().nonnegative(),

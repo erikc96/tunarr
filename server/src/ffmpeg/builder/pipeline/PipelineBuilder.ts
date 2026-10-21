@@ -27,7 +27,7 @@ export interface PipelineBuilder {
   hlsWrap(
     input: ConcatInputSource,
     state: FfmpegState,
-    options?: { quality?: 'low' },
+    options?: { quality?: 'low' | 'fire' },
   ): Pipeline;
 
   /**

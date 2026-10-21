@@ -24,16 +24,18 @@ import z from 'zod/v4';
 
 export const ChannelTsQuerySchema = z.object({
   streamMode: ChannelStreamModeSchema.optional(),
-  quality: z.enum(['high', 'low']).optional(),
+  quality: z.enum(['high', 'low', 'fire']).optional(),
   token: z.uuid().optional(),
   audioOnly: TruthyQueryParam.optional().default(false),
 });
 
 export function concatSessionTypeForQuality(
   mode: z.infer<typeof ChannelStreamModeSchema>,
-  quality: 'high' | 'low' | undefined,
+  quality: 'high' | 'low' | 'fire' | undefined,
 ): ConcatSessionOptions['sessionType'] {
-  return quality === 'low' ? `${mode}_concat_low` : `${mode}_concat`;
+  return quality === 'low' || quality === 'fire'
+    ? `${mode}_concat_${quality}`
+    : `${mode}_concat`;
 }
 
 export const streamApi: RouterPluginAsyncCallback = async (fastify) => {

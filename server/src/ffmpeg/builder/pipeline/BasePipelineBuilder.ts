@@ -203,6 +203,11 @@ export function isAudioPipelineContext(
   );
 }
 
+const HlsWrapQualityProfiles = {
+  low: { width: 854, height: 480, videoKbps: 1200, audioKbps: 96 },
+  fire: { width: 1280, height: 720, videoKbps: 3000, audioKbps: 128 },
+} as const;
+
 export abstract class BasePipelineBuilder implements PipelineBuilder {
   protected logger: Logger = LoggerFactory.child({
     caller: import.meta,
@@ -281,8 +286,11 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
   hlsWrap(
     input: ConcatInputSource,
     state: FfmpegState,
-    options?: { quality?: 'low' },
+    options?: { quality?: 'low' | 'fire' },
   ) {
+    const quality = options?.quality
+      ? HlsWrapQualityProfiles[options.quality]
+      : undefined;
     const pipelineSteps: PipelineStep[] = [
       new NoStdInOption(),
       new HideBannerOption(),
@@ -291,13 +299,16 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       new NoStatsOption(),
       new StandardFormatFlags(),
       MapAllStreamsOutputOption(),
-      ...(options?.quality === 'low'
+      ...(quality
         ? [
             new Libx264Encoder(null, 'veryfast'),
             new AudioEncoder('aac'),
             makeConstantOutputOption([
               '-vf',
-              'scale=w=min(854\\,iw):h=min(480\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2',
+              `scale=w=min(${quality.width}\\,iw):h=min(${quality.height}\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2`,
+              // Force 8-bit 4:2:0 so 10-bit sources play on 8-bit-only decoders.
+              '-pix_fmt',
+              'yuv420p',
               '-tune:v',
               'zerolatency',
               '-force_key_frames:v',
@@ -307,8 +318,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               '-ac',
               '2',
             ]),
-            VideoBitrateOutputOption(1200),
-            AudioBitrateOutputOption(96),
+            VideoBitrateOutputOption(quality.videoKbps),
+            AudioBitrateOutputOption(quality.audioKbps),
           ]
         : [new CopyAllEncoder()]),
     ];

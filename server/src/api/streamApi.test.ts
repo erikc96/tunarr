@@ -16,8 +16,15 @@ describe('channel MPEG-TS quality query', () => {
     );
   });
 
+  test('accepts fire quality', () => {
+    expect(ChannelTsQuerySchema.safeParse({ quality: 'fire' }).success).toBe(
+      true,
+    );
+  });
+
   test('uses a distinct session type for low quality', () => {
     expect(concatSessionTypeForQuality('hls', 'high')).toBe('hls_concat');
     expect(concatSessionTypeForQuality('hls', 'low')).toBe('hls_concat_low');
+    expect(concatSessionTypeForQuality('hls', 'fire')).toBe('hls_concat_fire');
   });
 });

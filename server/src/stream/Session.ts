@@ -32,7 +32,9 @@ export type HlsSessionType = StrictExtract<
 export type HlsConcatSessionType =
   `${HlsSessionType}${typeof ConcatSessionSuffix}`;
 
-export type LowQualityConcatSessionType = `${ChannelConcatStreamMode}_low`;
+export type LowQualityConcatSessionType =
+  | `${ChannelConcatStreamMode}_low`
+  | `${ChannelConcatStreamMode}_fire`;
 
 export type SessionType =
   | ChannelStreamMode
@@ -221,7 +223,8 @@ export abstract class Session<
   } {
     return (
       this.sessionType.endsWith(ConcatSessionSuffix) ||
-      this.sessionType.endsWith(`${ConcatSessionSuffix}_low`)
+      this.sessionType.endsWith(`${ConcatSessionSuffix}_low`) ||
+      this.sessionType.endsWith(`${ConcatSessionSuffix}_fire`)
     );
   }
 

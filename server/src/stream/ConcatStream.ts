@@ -21,9 +21,13 @@ export class ConcatStream {
   ) {}
 
   async createSession(): Promise<FfmpegTranscodeSession> {
-    const quality = this.streamMode.endsWith('_low') ? 'low' : undefined;
+    const quality = this.streamMode.endsWith('_low')
+      ? 'low'
+      : this.streamMode.endsWith('_fire')
+        ? 'fire'
+        : undefined;
     const streamMode = this.streamMode.replace(
-      /_low$/,
+      /_(low|fire)$/,
       '',
     ) as ChannelConcatStreamMode;
     const ffmpeg = this.ffmpegFactory(

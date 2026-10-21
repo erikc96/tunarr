@@ -11,7 +11,7 @@ import type { FfmpegTranscodeSession } from './FfmpegTrancodeSession.ts';
 export type HlsWrapperOptions = DeepReadonly<
   Omit<ConcatOptions, 'mode'> & {
     mode: StrictExclude<ChannelConcatStreamMode, 'mpegts_concat'>;
-    quality?: 'low';
+    quality?: 'low' | 'fire';
   }
 >;
 

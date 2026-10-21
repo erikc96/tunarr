@@ -305,7 +305,10 @@ export const ChannelSessionsResponseSchema = z.object({
   // TODO: Share types with session
   type: z.union([
     z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
-    z.templateLiteral([z.enum(ChannelConcatStreamModes), z.literal('_low')]),
+    z.templateLiteral([
+      z.enum(ChannelConcatStreamModes),
+      z.enum(['_low', '_fire']),
+    ]),
   ]),
   state: z.string(),
   numConnections: z.number().nonnegative(),

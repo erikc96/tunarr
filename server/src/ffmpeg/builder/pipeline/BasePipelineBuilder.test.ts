@@ -152,6 +152,32 @@ describe('BasePipelineBuilder', () => {
     expect(highArgs).toContain('-c');
     expect(highArgs).toContain('copy');
     expect(highArgs).not.toContain('-vf');
+    const fireArgs = builder
+      .hlsWrap(input, state, { quality: 'fire' })
+      .getCommandArgs();
+
+    expect(highArgs).not.toContain('-pix_fmt');
+    expect(lowArgs).toEqual(expect.arrayContaining(['-pix_fmt', 'yuv420p']));
+    expect(fireArgs).toEqual(
+      expect.arrayContaining([
+        '-c:v',
+        'libx264',
+        '-preset:v',
+        'veryfast',
+        '-vf',
+        'scale=w=min(1280\\,iw):h=min(720\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2',
+        '-pix_fmt',
+        'yuv420p',
+        '-b:v',
+        '3000k',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '128k',
+        '-ac',
+        '2',
+      ]),
+    );
     expect(lowArgs).toEqual(
       expect.arrayContaining([
         '-c:v',
