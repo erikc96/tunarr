@@ -328,8 +328,11 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       input.addOption(new ConcatHttpReconnectOptions());
     }
 
-    // Burst the first seconds so a new viewer gets a keyframe right away.
-    input.addOption(new ReadrateInputOption(this.ffmpegCapabilities, 4));
+    // Burst the first seconds so a new viewer gets a keyframe right away. The re-encoded Fire/low profiles burst
+    // 30 s so the player has lead and doesn't rebuffer at every hiccup.
+    input.addOption(
+      new ReadrateInputOption(this.ffmpegCapabilities, quality ? 30 : 4),
+    );
     if (state.metadataServiceName) {
       pipelineSteps.push(
         MetadataServiceNameOutputOption(state.metadataServiceName),
