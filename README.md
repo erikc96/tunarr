@@ -16,6 +16,8 @@
 
 ---
 
+> **This is a personal fork.** What it adds (Fire TV / low-bandwidth stream profiles, faster stream start, live channels, an AI channel assistant) is in [FORK.md](FORK.md). Everything below is upstream's README.
+
 ## What is Tunarr?
 
 Tunarr lets you build custom live TV channels out of your existing media libraries — movies, TV episodes, music videos, or local files — and stream them as if they were real broadcast channels.
