@@ -241,7 +241,7 @@ export class SessionManager {
       'hls',
       (channel) =>
         this.hlsSessionFactory(channel, {
-          initialSegmentCount: 2, // 8 seconds of content
+          initialSegmentCount: 1, // 4 seconds of content: the Fire/low re-encode wrapper starts on this child, so one segment cuts the cold start
           cleanupDelay: this.lingerMs(),
           transcodeDirectory:
             this.settingsDB.ffmpegSettings().transcodeDirectory,
