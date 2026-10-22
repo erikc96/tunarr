@@ -2,7 +2,7 @@ import type { FrameState } from '@/ffmpeg/builder/state/FrameState.js';
 import { OutputOption } from './OutputOption.ts';
 
 export class HlsOutputFormat extends OutputOption {
-  public static SegmentSeconds = 4;
+  public static SegmentSeconds = 2;
 
   constructor(
     private desiredState: FrameState,
