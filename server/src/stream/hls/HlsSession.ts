@@ -22,6 +22,8 @@ import fs from 'node:fs/promises';
 import path, { basename, dirname, extname } from 'node:path';
 import type { BaseHlsSessionOptions } from './BaseHlsSession.js';
 import { BaseHlsSession } from './BaseHlsSession.js';
+import type { ProfiledHlsSessionType } from '../Session.js';
+import { applyProfile, isReducedProfile } from '../qualityProfiles.js';
 import { HlsPlaylistMutator } from './HlsPlaylistMutator.js';
 
 export type HlsSessionProvider = (
@@ -39,7 +41,11 @@ export type HlsSlowerSessionProvider = (
  * endpoint and outputs an HLS format + segments
  */
 export class HlsSession extends BaseHlsSession {
-  public readonly sessionType = 'hls' as const;
+  get sessionType(): 'hls' | ProfiledHlsSessionType {
+    const profile = this.sessionOptions.profile;
+    return isReducedProfile(profile) ? `hls~${profile}` : 'hls';
+  }
+
   #playlistStart: Dayjs;
   #hlsPlaylistMutator: HlsPlaylistMutator = new HlsPlaylistMutator();
   #currentSession: Maybe<FfmpegTranscodeSession>;
@@ -178,8 +184,8 @@ export class HlsSession extends BaseHlsSession {
         result.sourceChannel,
         false,
         realtime,
-        this.channel.transcodeConfig,
-        this.sessionType,
+        applyProfile(this.channel.transcodeConfig, this.sessionOptions.profile),
+        'hls',
       );
 
       let programStream = this.getProgramStream(context);
@@ -209,8 +215,11 @@ export class HlsSession extends BaseHlsSession {
             result.channelContext,
             this.channel,
             realtime,
-            this.channel.transcodeConfig,
-            this.sessionType,
+            applyProfile(
+              this.channel.transcodeConfig,
+              this.sessionOptions.profile,
+            ),
+            'hls',
           ),
         );
 

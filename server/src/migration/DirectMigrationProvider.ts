@@ -186,6 +186,9 @@ export class DirectMigrationProvider implements MigrationProvider {
           migration1768825617: makeKyselyMigrationFromSqlFile(
             './sql/0037_orange_bromley.sql',
           ),
+          migration1793000000: makeKyselyMigrationFromSqlFile(
+            './sql/0038_client_device.sql',
+          ),
         },
         wrapWithTransaction,
       ),

@@ -70,7 +70,10 @@ export function buildBumperConcat(
     );
     lines.push(...withinLines);
   } else {
-    const showEndMs = Math.min(showStartMs + outputRemaining, programDurationMs);
+    const showEndMs = Math.min(
+      showStartMs + outputRemaining,
+      programDurationMs,
+    );
     if (showEndMs > showStartMs) {
       lines.push(`file '${showPath}'`);
       if (showStartMs > 0) {

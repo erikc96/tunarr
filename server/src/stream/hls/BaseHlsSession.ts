@@ -13,6 +13,8 @@ import { defaultHlsOptions } from '../../ffmpeg/builder/constants.ts';
 import { liveChannelUrl } from '../../ffmpeg/FfmpegStreamFactory.ts';
 import { serverOptions } from '../../globals.ts';
 import { fileExists } from '../../util/fsUtil.ts';
+import type { QualityProfileName } from '../qualityProfiles.ts';
+import { isReducedProfile } from '../qualityProfiles.ts';
 
 export abstract class BaseHlsSession<
   HlsSessionOptsT extends BaseHlsSessionOptions = BaseHlsSessionOptions,
@@ -34,7 +36,9 @@ export abstract class BaseHlsSession<
 
     this._workingDirectory = path.join(
       this.baseDirectory,
-      `stream_${this.channel.uuid}`,
+      isReducedProfile(options.profile)
+        ? `stream_${this.channel.uuid}_${options.profile}`
+        : `stream_${this.channel.uuid}`,
     );
     this._m3u8PlaylistPath = path.join(this._workingDirectory, 'stream.m3u8');
     // Direct players back to the /hls URL which will return the playlist
@@ -196,4 +200,6 @@ export type BaseHlsSessionOptions = SessionOptions & {
   initialSegmentCount: number;
   // The directory to write segments to
   transcodeDirectory?: string;
+  // A reduced-size transcode for this profile; unset uses the channel's config.
+  profile?: QualityProfileName;
 };

@@ -14,6 +14,7 @@ import events from 'node:events';
 import type { StrictExtract } from 'ts-essentials';
 import { v4 } from 'uuid';
 import { ConnectionTracker } from './ConnectionTracker.ts';
+import type { ReducedProfileName } from './qualityProfiles.ts';
 
 const ConcatSessionSuffix = '_concat';
 
@@ -32,14 +33,20 @@ export type HlsSessionType = StrictExtract<
 export type HlsConcatSessionType =
   `${HlsSessionType}${typeof ConcatSessionSuffix}`;
 
+// A transcode made at a reduced size, shared by every viewer of the channel
+// at that size, and the wrapper that serves it as MPEG-TS.
+export type ProfiledHlsSessionType = `hls~${ReducedProfileName}`;
+
 export type LowQualityConcatSessionType =
   | `${ChannelConcatStreamMode}_low`
-  | `${ChannelConcatStreamMode}_fire`;
+  | `${ChannelConcatStreamMode}_fire`
+  | `${ProfiledHlsSessionType}${typeof ConcatSessionSuffix}`;
 
 export type SessionType =
   | ChannelStreamMode
   | ChannelConcatStreamMode
-  | LowQualityConcatSessionType;
+  | LowQualityConcatSessionType
+  | ProfiledHlsSessionType;
 
 // TODO: sort these all out.... and write docs
 type StreamSessionEvents = {

@@ -2,6 +2,13 @@ import type { Channel } from '@/db/schema/Channel.js';
 import type { BaseHlsSession } from '@/stream/hls/BaseHlsSession.js';
 import type { ConcatSessionOptions } from '@/stream/ConcatSession.js';
 import { fanOut } from '@/stream/fanOut.js';
+import { parseBasicAuth } from '@/stream/basicAuth.js';
+import {
+  isReducedProfile,
+  QualityProfileNames,
+  resolveProfile,
+  type QualityProfileName,
+} from '@/stream/qualityProfiles.js';
 import { HlsPlaylistCreator } from '@/stream/hls/HlsPlaylistCreator.js';
 import type { Result } from '@/types/result.js';
 import { TruthyQueryParam } from '@/types/schemas.js';
@@ -13,7 +20,7 @@ import fastifyStatic from '@fastify/static';
 import type { StreamConnectionDetails } from '@tunarr/types/api';
 import { ChannelStreamModeSchema } from '@tunarr/types/schemas';
 import dayjs from 'dayjs';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isArray, isNil, isNumber, isUndefined } from 'lodash-es';
 import fs from 'node:fs/promises';
 import { join } from 'node:path';
@@ -23,9 +30,21 @@ import { match } from 'ts-pattern';
 import { v4 } from 'uuid';
 import z from 'zod/v4';
 
+const deviceForRequest = async (req: FastifyRequest) => {
+  const auth = parseBasicAuth(req.headers.authorization);
+  return auth
+    ? await req.serverCtx.clientDeviceDB.verify(
+        auth.user,
+        auth.password,
+        req.ip,
+      )
+    : undefined;
+};
+
 export const ChannelTsQuerySchema = z.object({
   streamMode: ChannelStreamModeSchema.optional(),
   quality: z.enum(['high', 'low', 'fire']).optional(),
+  size: z.enum(['pip', 'full']).optional(),
   token: z.uuid().optional(),
   audioOnly: TruthyQueryParam.optional().default(false),
 });
@@ -33,7 +52,13 @@ export const ChannelTsQuerySchema = z.object({
 export function concatSessionTypeForQuality(
   mode: z.infer<typeof ChannelStreamModeSchema>,
   quality: 'high' | 'low' | 'fire' | undefined,
+  profile?: QualityProfileName,
 ): ConcatSessionOptions['sessionType'] {
+  // Fire keeps its own re-encode; otherwise a reduced profile gets its own
+  // transcode instead of re-encoding the full-size one.
+  if (mode === 'hls' && quality !== 'fire' && isReducedProfile(profile)) {
+    return `hls~${profile}_concat`;
+  }
   return quality === 'low' || quality === 'fire'
     ? `${mode}_concat_${quality}`
     : `${mode}_concat`;
@@ -137,6 +162,9 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       const mode = req.query.streamMode ?? channel.streamMode;
       const token = req.query.token ?? v4();
 
+      const device = await deviceForRequest(req);
+      const profile = resolveProfile({ device, size: req.query.size });
+
       const sessionResult =
         await req.serverCtx.sessionManager.getOrCreateConcatSession(
           channel.uuid,
@@ -147,7 +175,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           },
           {
             audioOnly: req.query.audioOnly,
-            sessionType: concatSessionTypeForQuality(mode, req.query.quality),
+            sessionType: concatSessionTypeForQuality(
+              mode,
+              req.query.quality,
+              profile,
+            ),
           },
         );
 
@@ -268,7 +300,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         params: z.object({
           sessionType: ChannelStreamModeSchema.refine(
             (typ) => typ !== 'mpegts',
-          ),
+          ).or(z.enum(['hls~480p', 'hls~720p'])),
           id: z.string().uuid(),
           file: z.string(),
         }),
@@ -282,6 +314,13 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       switch (req.params.sessionType) {
         case 'hls':
           session = req.serverCtx.sessionManager.getHlsSession(req.params.id);
+          break;
+        case 'hls~480p':
+        case 'hls~720p':
+          session = req.serverCtx.sessionManager.getHlsSession(
+            req.params.id,
+            req.params.sessionType.slice(4) as QualityProfileName,
+          );
           break;
         case 'hls_slower':
           session = req.serverCtx.sessionManager.getHlsSlowerSession(
@@ -318,6 +357,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       }),
       querystring: z.object({
         mode: ChannelStreamModeSchema.optional(),
+        profile: z.enum(QualityProfileNames).optional(),
       }),
     },
     handler: async (req, res) => {
@@ -351,7 +391,9 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       switch (mode) {
         case 'hls':
           sessionResult = await req.serverCtx.sessionManager
-            .getOrCreateHlsSession(channelId, req.ip, connectionDetails, {})
+            .getOrCreateHlsSession(channelId, req.ip, connectionDetails, {
+              profile: req.query.profile,
+            })
             .then((result) =>
               result.mapAsync(async (session) => {
                 session.recordHeartbeat(req.ip);

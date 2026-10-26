@@ -26,10 +26,11 @@ export class ConcatStream {
       : this.streamMode.endsWith('_fire')
         ? 'fire'
         : undefined;
-    const streamMode = this.streamMode.replace(
-      /_(low|fire)$/,
-      '',
-    ) as ChannelConcatStreamMode;
+    // 'hls~480p_concat' wraps the 480p transcode and is a plain copy.
+    const profile = /^hls~(480p|720p)_concat$/.exec(this.streamMode)?.[1];
+    const streamMode = this.streamMode
+      .replace(/_(low|fire)$/, '')
+      .replace(/^hls~\w+_concat$/, 'hls_concat') as ChannelConcatStreamMode;
     const ffmpeg = this.ffmpegFactory(
       this.channel.transcodeConfig,
       this.channel,
@@ -46,6 +47,7 @@ export class ConcatStream {
         return ffmpeg.createHlsWrapperSession(
           makeLocalUrl(`/stream/channels/${this.channel.uuid}.m3u8`, {
             mode: childStreamMode,
+            profile,
           }),
           {
             outputFormat: MpegTsOutputFormat,

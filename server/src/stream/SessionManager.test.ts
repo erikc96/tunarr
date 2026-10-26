@@ -60,7 +60,10 @@ function setup(maxLingering = 0) {
     logger as never,
     channelDB as never,
     { resumeChannel: vi.fn(), pauseChannel: vi.fn() } as never,
-    (() => mk('hls', { tok: { userAgent: 'Lavf/62.12.103' } })) as never,
+    ((_c: unknown, o: { profile?: string }) =>
+      mk((o.profile ? `hls~${o.profile}` : 'hls') as SessionType, {
+        tok: { userAgent: 'Lavf/62.12.103' },
+      })) as never,
     (() => mk('hls_slower')) as never,
     ((_c: unknown, o: { sessionType: SessionType }) =>
       mk(o.sessionType)) as never,
@@ -131,5 +134,30 @@ describe('SessionManager idle on wrapper stop', () => {
     await sessions['hls']!.stop();
     expect(sessions['hls_concat_low']!.stop).toHaveBeenCalled();
     expect(sessions['hls_concat_fire']!.stop).toHaveBeenCalled();
+  });
+});
+
+describe('profile-keyed sessions', () => {
+  test('two profiles on one channel get two transcodes; a profile is reused', async () => {
+    const { mgr, sessions } = setup(2);
+    await mgr.getOrCreateHlsSession('c1', 'a', conn);
+    await mgr.getOrCreateHlsSession('c1', 'b', conn, { profile: '480p' });
+    await mgr.getOrCreateHlsSession('c1', 'c', conn, { profile: '480p' });
+    expect(Object.keys(sessions).sort()).toEqual(['hls', 'hls~480p']);
+    expect(mgr.getSession('c1', 'hls~480p')).toBe(sessions['hls~480p']);
+    expect(mgr.getHlsSession('c1', '480p')).toBe(sessions['hls~480p']);
+    expect(mgr.getHlsSession('c1', '1080p')).toBe(sessions['hls']);
+  });
+
+  test('stopping the last 480p wrapper idles only the 480p transcode', async () => {
+    const { mgr, sessions } = setup(0);
+    await mgr.getOrCreateHlsSession('c1', 't', conn);
+    await mgr.getOrCreateHlsSession('c1', 't', conn, { profile: '480p' });
+    await mgr.getOrCreateConcatSession('c1', 't', conn, {
+      sessionType: 'hls~480p_concat',
+    } as never);
+    await sessions['hls~480p_concat']!.stop();
+    expect(sessions['hls~480p']!.stop).toHaveBeenCalled();
+    expect(sessions['hls']!.stop).not.toHaveBeenCalled();
   });
 });

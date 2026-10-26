@@ -24,7 +24,12 @@ import {
   type ConcatSessionOptions,
 } from './ConcatSession.js';
 import { sessionsToEvict } from './ConnectionTracker.ts';
-import { HlsConcatSessionType, Session } from './Session.js';
+import {
+  HlsConcatSessionType,
+  ProfiledHlsSessionType,
+  Session,
+} from './Session.js';
+import { isReducedProfile, QualityProfileName } from './qualityProfiles.js';
 import {
   HlsSession,
   type HlsSessionProvider,
@@ -108,8 +113,11 @@ export class SessionManager {
     return this.getSession(id, 'hls_slower') as Maybe<HlsSlowerSession>;
   }
 
-  getHlsSession(id: string): Maybe<HlsSession> {
-    return this.getSession(id, 'hls') as Maybe<HlsSession>;
+  getHlsSession(id: string, profile?: QualityProfileName): Maybe<HlsSession> {
+    return this.getSession(
+      id,
+      isReducedProfile(profile) ? `hls~${profile}` : 'hls',
+    ) as Maybe<HlsSession>;
   }
 
   getConcatSession(id: string): Maybe<ConcatSession> {
@@ -248,11 +256,12 @@ export class SessionManager {
     connection: StreamConnectionDetails,
     options?: Partial<BaseHlsSessionOptions>,
   ) {
+    const profile = options?.profile;
     return this.getOrCreateSession(
       channelId,
       token,
       connection,
-      'hls',
+      isReducedProfile(profile) ? `hls~${profile}` : 'hls',
       (channel) =>
         this.hlsSessionFactory(channel, {
           initialSegmentCount: 1, // 4 seconds of content: the Fire/low re-encode wrapper starts on this child, so one segment cuts the cold start
@@ -590,10 +599,10 @@ export class SessionManager {
 
 function sessionTypeFromConcatType(
   typ: ConcatSessionOptions['sessionType'],
-): ChannelStreamMode {
-  return initial(typ.replace(/_(low|fire)$/, '').split('_')).join(
-    '_',
-  ) as ChannelStreamMode;
+): ChannelStreamMode | ProfiledHlsSessionType {
+  return initial(typ.replace(/_(low|fire)$/, '').split('_')).join('_') as
+    | ChannelStreamMode
+    | ProfiledHlsSessionType;
 }
 
 const ConcatSuffix = '_concat';

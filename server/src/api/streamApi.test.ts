@@ -27,4 +27,22 @@ describe('channel MPEG-TS quality query', () => {
     expect(concatSessionTypeForQuality('hls', 'low')).toBe('hls_concat_low');
     expect(concatSessionTypeForQuality('hls', 'fire')).toBe('hls_concat_fire');
   });
+
+  test('reduced profiles get their own wrapper; fire and 1080p do not', () => {
+    expect(concatSessionTypeForQuality('hls', undefined, '480p')).toBe(
+      'hls~480p_concat',
+    );
+    expect(concatSessionTypeForQuality('hls', 'low', '720p')).toBe(
+      'hls~720p_concat',
+    );
+    expect(concatSessionTypeForQuality('hls', 'fire', '480p')).toBe(
+      'hls_concat_fire',
+    );
+    expect(concatSessionTypeForQuality('hls', undefined, '1080p')).toBe(
+      'hls_concat',
+    );
+    expect(concatSessionTypeForQuality('mpegts', undefined, '480p')).toBe(
+      'mpegts_concat',
+    );
+  });
 });

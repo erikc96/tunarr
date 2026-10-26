@@ -296,7 +296,9 @@ export class StreamProgramCalculator {
       case 'content': {
         // Slim fetch — only scalars + externalIds, no artwork/subtitles/credits/versions.
         // Stream handlers that need full version data (LocalProgramStream) re-fetch themselves.
-        const backingItem = await this.programDB.getProgramForStream(lineupItem.id);
+        const backingItem = await this.programDB.getProgramForStream(
+          lineupItem.id,
+        );
         program = {
           duration: lineupItem.durationMs,
           type: 'offline',
@@ -587,7 +589,10 @@ export class StreamProgramCalculator {
 
     return {
       intervalMs,
-      files: pack.files.map((f) => ({ path: f.path, durationMs: f.durationMs })),
+      files: pack.files.map((f) => ({
+        path: f.path,
+        durationMs: f.durationMs,
+      })),
     };
   }
 }

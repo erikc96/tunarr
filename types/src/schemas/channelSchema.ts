@@ -115,6 +115,9 @@ export const ChannelSessionSchema = z.object({
       z.enum(ChannelConcatStreamModes),
       z.enum(['_low', '_fire']),
     ]),
+    // Reduced-size transcodes and the wrappers that serve them.
+    z.templateLiteral(['hls~', z.enum(['480p', '720p'])]),
+    z.templateLiteral(['hls~', z.enum(['480p', '720p']), '_concat']),
   ]),
   state: z.string(),
   numConnections: z.number().nonnegative(),

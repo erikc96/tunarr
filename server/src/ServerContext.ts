@@ -12,6 +12,7 @@ import { CustomShowDB } from './db/CustomShowDB.ts';
 import { FillerDB } from './db/FillerListDB.ts';
 import { BumperDB } from './services/bumpers/BumperDB.ts';
 import { SmartCollectionsDB } from './db/SmartCollectionsDB.ts';
+import { ClientDeviceDB } from './db/ClientDeviceDB.ts';
 import { TranscodeConfigDB } from './db/TranscodeConfigDB.ts';
 import { ProgramConverter } from './db/converters/ProgramConverter.ts';
 import { MediaSourceDB } from './db/mediaSourceDB.ts';
@@ -55,6 +56,7 @@ export class ServerContext {
   @inject(MediaSourceDB) public mediaSourceDB: MediaSourceDB;
   @inject(KEYS.ProgramDB) public programDB: IProgramDB;
   @inject(TranscodeConfigDB) public transcodeConfigDB: TranscodeConfigDB;
+  @inject(ClientDeviceDB) public clientDeviceDB: ClientDeviceDB;
 
   @inject(SessionManager) public readonly sessionManager: SessionManager;
   @inject(HealthCheckService)
