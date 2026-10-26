@@ -302,6 +302,7 @@ export class SessionManager {
           session.on('stop', () => {
             this.deleteSession(channelId, sessionType);
             this.shutdownChildSessions(channelId, sessionType);
+            this.idleUnderlyingSession(channelId, sessionType);
             if (session) {
               this.pauseChannelIfNecessary(session, connection).catch(() => {});
             }
@@ -319,6 +320,7 @@ export class SessionManager {
           session.on('cleanup', () => {
             this.deleteSession(channelId, sessionType);
             this.shutdownChildSessions(channelId, sessionType);
+            this.idleUnderlyingSession(channelId, sessionType);
           });
 
           session.on('addConnection', () => {
@@ -521,11 +523,41 @@ export class SessionManager {
   }
 
   private shutdownChildSessions(id: string, sessionType: SessionType) {
-    this.getSession(id, concatSessionTypeForSessionType(sessionType))
-      ?.stop()
-      .catch((e) => {
-        this.logger.error(e, 'Error shutting down associated concat session');
-      });
+    for (const childType of concatWrapperTypes(sessionType)) {
+      this.getSession(id, childType)
+        ?.stop()
+        .catch((e) => {
+          this.logger.error(e, 'Error shutting down associated concat session');
+        });
+    }
+  }
+
+  // When the last wrapper (concat, _low, _fire) over a transcode stops, the
+  // transcode has no viewer left: mark it idle so the linger cap can evict
+  // it instead of it running until its own staleness timer fires.
+  private idleUnderlyingSession(id: string, sessionType: SessionType) {
+    if (!sessionType.includes(ConcatSuffix)) {
+      return;
+    }
+    const underlyingType = sessionTypeFromConcatType(
+      sessionType as ConcatSessionOptions['sessionType'],
+    ) as SessionType;
+    const underlying = this.getSession(id, underlyingType);
+    if (
+      !underlying ||
+      concatWrapperTypes(underlyingType).some((t) => this.getSession(id, t))
+    ) {
+      return;
+    }
+    const viewers = filter(
+      underlying.connections(),
+      (conn) => !(conn.userAgent?.includes('Tunarr') ?? false),
+    ).length;
+    if (viewers > 0) {
+      return;
+    }
+    this.#idleSince.set(sessionCacheKey(id, underlyingType), Date.now());
+    this.evictLingeringSessions();
   }
 
   private getLoggerContext(sessionId?: string, error?: unknown) {
@@ -541,10 +573,12 @@ function sessionTypeFromConcatType(
   ) as ChannelStreamMode;
 }
 
-function concatSessionTypeForSessionType(
-  typ: SessionType,
-): ChannelConcatStreamMode {
-  return `${typ}_concat` as ChannelConcatStreamMode;
+const ConcatSuffix = '_concat';
+
+/** Session types of the wrappers that can sit on top of a transcode type. */
+export function concatWrapperTypes(typ: SessionType): SessionType[] {
+  const base = `${typ}${ConcatSuffix}` as ChannelConcatStreamMode;
+  return [base, `${base}_low`, `${base}_fire`];
 }
 
 function sessionCacheKey(id: string, sessionType: SessionType): SessionKey {
