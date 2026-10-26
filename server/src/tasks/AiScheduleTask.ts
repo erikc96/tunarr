@@ -11,6 +11,15 @@ import { SimpleTask, type TaskId } from './Task.js';
 import { simpleTaskDef } from './TaskRegistry.ts';
 import type { IProgramDB } from '../db/interfaces/IProgramDB.js';
 
+const BillingBackoffMs = 24 * 60 * 60 * 1000;
+
+export function isBillingError(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /credit balance|billing|insufficient[_ ]quota|payment required/i.test(
+    msg,
+  );
+}
+
 @injectable()
 @simpleTaskDef({ hidden: true })
 export class AiScheduleTask extends SimpleTask {
@@ -18,6 +27,11 @@ export class AiScheduleTask extends SimpleTask {
   public static ID: TaskId = 'ai-schedule-channels';
 
   public ID = AiScheduleTask.ID;
+
+  // After two billing errors in a row the hourly run stops hitting the API
+  // for a day instead of failing every hour.
+  #billingFailures = 0;
+  #billingBackoffUntil = 0;
 
   constructor(
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
@@ -30,6 +44,11 @@ export class AiScheduleTask extends SimpleTask {
   }
 
   protected async runInternal(): Promise<void> {
+    if (Date.now() < this.#billingBackoffUntil) {
+      this.logger.debug('AI scheduling backing off after billing errors');
+      return;
+    }
+
     const settings = await this.settingsDB.get();
     if (!settings.apiKey) {
       this.logger.debug('No AI API key configured, skipping AI scheduling');
@@ -57,7 +76,10 @@ export class AiScheduleTask extends SimpleTask {
       const items = config.lineup.items.filter(isContentItem);
 
       // Only replenish if lineup is getting short (under 6 hours of content)
-      const totalDurationMs = items.reduce((sum, i) => sum + (i.durationMs ?? 0), 0);
+      const totalDurationMs = items.reduce(
+        (sum, i) => sum + (i.durationMs ?? 0),
+        0,
+      );
       const totalHours = totalDurationMs / (1000 * 60 * 60);
 
       if (totalHours > 6 && hoursSinceLast < 24) continue;
@@ -67,14 +89,29 @@ export class AiScheduleTask extends SimpleTask {
       );
 
       try {
-        await this.replenishChannel(channel.uuid, channel.name, aiConfig.prompt);
+        await this.replenishChannel(
+          channel.uuid,
+          channel.name,
+          aiConfig.prompt,
+        );
 
         await this.channelDB.updateLineupConfig(channel.uuid, 'aiConfig', {
           ...aiConfig,
           lastScheduled: now,
         });
+        this.#billingFailures = 0;
       } catch (err) {
-        this.logger.error(err, `Failed to AI-schedule channel "${channel.name}"`);
+        this.logger.error(
+          err,
+          `Failed to AI-schedule channel "${channel.name}"`,
+        );
+        if (isBillingError(err) && ++this.#billingFailures >= 2) {
+          this.#billingBackoffUntil = Date.now() + BillingBackoffMs;
+          this.logger.warn(
+            'AI provider billing error twice; pausing AI scheduling for 24 h',
+          );
+          return;
+        }
       }
     }
   }
@@ -93,7 +130,9 @@ export class AiScheduleTask extends SimpleTask {
     const proposal = await this.generator.generate(prompt, existingChannels);
 
     if ('error' in proposal) {
-      this.logger.warn(`AI generation failed for "${channelName}": ${proposal.error}`);
+      this.logger.warn(
+        `AI generation failed for "${channelName}": ${proposal.error}`,
+      );
       return;
     }
 
@@ -102,7 +141,9 @@ export class AiScheduleTask extends SimpleTask {
       return;
     }
 
-    const programs = await this.programDB.getProgramsByIds(proposal.programUuids);
+    const programs = await this.programDB.getProgramsByIds(
+      proposal.programUuids,
+    );
     const durationByUuid = new Map(programs.map((p) => [p.uuid, p.duration]));
 
     const lineupItems = proposal.programUuids
@@ -126,6 +167,8 @@ export class AiScheduleTask extends SimpleTask {
 
     GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
       .runNow(true)
-      .catch((err) => this.logger.error(err, 'Error regenerating guide after AI schedule'));
+      .catch((err) =>
+        this.logger.error(err, 'Error regenerating guide after AI schedule'),
+      );
   }
 }

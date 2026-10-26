@@ -19,6 +19,7 @@ import { TunarrWorkerPool } from '../services/TunarrWorkerPool.ts';
 import { PlexCollectionScanner } from '../services/scanner/PlexCollectionScanner.ts';
 import { debugFfmpegApiRouter } from './debug/debugFfmpegApi.ts';
 import { DebugJellyfinApiRouter } from './debug/debugJellyfinApi.js';
+import { debugHealthApiRouter } from './debug/debugHealthApi.js';
 import { debugStreamApiRouter } from './debug/debugStreamApi.js';
 
 const ChannelQuerySchema = z.object({
@@ -31,6 +32,9 @@ export const debugApi: RouterPluginAsyncCallback = async (fastify) => {
       prefix: '/debug',
     })
     .register(debugStreamApiRouter, {
+      prefix: '/debug',
+    })
+    .register(debugHealthApiRouter, {
       prefix: '/debug',
     })
     .register(debugFfmpegApiRouter, {

@@ -56,6 +56,7 @@ export class SessionManager {
   #sessions: Record<SessionKey, Session> = {};
   // Transcode sessions with no viewers, and when they lost their last one.
   #idleSince = new Map<SessionKey, number>();
+  #createdAt = new Map<SessionKey, number>();
 
   constructor(
     @inject(KEYS.Logger) private logger: Logger,
@@ -73,6 +74,19 @@ export class SessionManager {
 
   allSessions(): Record<SessionKey, Session> {
     return this.#sessions;
+  }
+
+  /** Snapshot of every session with its age and idle time, for health checks. */
+  sessionInfos(now = Date.now()) {
+    return Object.entries(this.#sessions).map(([key, session]) => {
+      const idleSince = this.#idleSince.get(key as SessionKey);
+      return {
+        key,
+        session,
+        ageMs: now - (this.#createdAt.get(key as SessionKey) ?? now),
+        idleForMs: idleSince === undefined ? null : now - idleSince,
+      };
+    });
   }
 
   allSessionsByChannel(): Record<
@@ -404,12 +418,15 @@ export class SessionManager {
   }
 
   private addSession(id: string, sessionType: SessionType, session: Session) {
-    this.#sessions[sessionCacheKey(id, sessionType)] = session;
+    const key = sessionCacheKey(id, sessionType);
+    this.#sessions[key] = session;
+    this.#createdAt.set(key, Date.now());
   }
 
   private deleteSession(id: string, sessionType: SessionType) {
     const key = sessionCacheKey(id, sessionType);
     this.#idleSince.delete(key);
+    this.#createdAt.delete(key);
     ifDefined(this.#sessions[key], (session) => {
       session.stop().catch((e) => {
         this.logger.error(
