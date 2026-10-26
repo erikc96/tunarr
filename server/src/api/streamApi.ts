@@ -194,29 +194,37 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         session.removeConnection(token);
       });
 
-      session.on('end', () => {
+      const onEnd = () => {
         logger.debug(
           { token, ip: req.ip, channel: req.params.id },
           'Session end - closing response stream',
         );
         piped.end();
-      });
-
-      session.on('cleanup', () => {
+      };
+      const onCleanup = () => {
         logger.debug(
           { token, ip: req.ip, channel: req.params.id },
           'Session cleanup - closing response stream',
         );
         piped.end();
-      });
-
+      };
       // Close the request on error.
-      session.on('error', (error) => {
+      const onError = (error: unknown) => {
         logger.error(
           { token, ip: req.ip, channel: req.params.id, error },
           'Session error - closing response stream',
         );
         piped.end();
+      };
+      session.on('end', onEnd);
+      session.on('cleanup', onCleanup);
+      session.on('error', onError);
+      // Don't leave a listener (and the closed stream it holds) on the
+      // session for every request it ever served.
+      piped.on('close', () => {
+        session.off('end', onEnd);
+        session.off('cleanup', onCleanup);
+        session.off('error', onError);
       });
 
       return res.header('Content-Type', 'video/mp2t').send(piped);

@@ -326,7 +326,9 @@ export class HlsSession extends BaseHlsSession {
     try {
       const playlistLines = await this.readPlaylist();
       if (playlistLines) {
-        const dur = dayjs.duration(this.#playlistStart.diff(dayjs()));
+        // Time elapsed since the playlist start (start.diff(now) was always
+        // negative, so the playlist was never trimmed and grew without bound).
+        const dur = dayjs.duration(dayjs().diff(this.#playlistStart));
         if (dur.asSeconds() <= 60) {
           this.logger.trace(
             'Skipping trim. %d seconds since last',
