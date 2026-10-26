@@ -14,6 +14,7 @@ import type { Result } from '@/types/result.js';
 import { TruthyQueryParam } from '@/types/schemas.js';
 import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
 import type { Maybe } from '@/types/util.js';
+import { BusyError } from '@/types/errors.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { makeLocalUrl } from '@/util/serverUtil.js';
 import fastifyStatic from '@fastify/static';
@@ -191,6 +192,13 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           .with('generic_error', () =>
             res.status(500).send('Unable to start session'),
           )
+          .with('busy', () => {
+            const e = sessionResult.error as BusyError;
+            return res
+              .status(503)
+              .header('Retry-After', '5')
+              .send({ busy: true, active: e.active, cap: e.cap });
+          })
           .with('transcode_config_not_found', () =>
             res.status(404).send('Transcode config not found'),
           )
@@ -462,6 +470,13 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       if (sessionResult.isFailure()) {
+        if (sessionResult.error instanceof BusyError) {
+          return res.status(503).header('Retry-After', '5').send({
+            busy: true,
+            active: sessionResult.error.active,
+            cap: sessionResult.error.cap,
+          });
+        }
         logger.error(sessionResult.error);
       }
 

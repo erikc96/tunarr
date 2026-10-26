@@ -83,7 +83,20 @@ export class TranscodeConfigNotFoundError extends NotFoundError {
 export type KnownErrorTypes =
   | 'channel_not_found'
   | 'generic_error'
-  | 'transcode_config_not_found';
+  | 'transcode_config_not_found'
+  | 'busy';
+
+/** The transcode budget is spent; the client should retry shortly. */
+export class BusyError extends TypedError {
+  readonly type = 'busy';
+  readonly httpCode: number = 503;
+  constructor(
+    readonly active: number,
+    readonly cap: number,
+  ) {
+    super(`Transcode capacity is full (${active} of ${cap})`);
+  }
+}
 
 export class GenericError extends TypedError {
   readonly type = 'generic_error';

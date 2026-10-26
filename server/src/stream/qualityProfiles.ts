@@ -90,3 +90,33 @@ export function resolveProfile(
   }
   return undefined;
 }
+
+/**
+ * Transcode cost of one session by type: a transcode costs its profile's
+ * weight, an extra re-encode wrapper (_low, _fire) adds its own, and a plain
+ * stream-copy wrapper is free.
+ */
+export function sessionWeight(sessionType: string): number {
+  const profiled = /^hls~(480p|720p)(_concat)?$/.exec(sessionType);
+  if (profiled) {
+    return profiled[2]
+      ? 0
+      : QUALITY_PROFILES[profiled[1] as ReducedProfileName].weight;
+  }
+  if (sessionType.endsWith('_concat_fire')) {
+    return 0.5;
+  }
+  if (sessionType.endsWith('_concat_low')) {
+    return QUALITY_PROFILES['480p'].weight;
+  }
+  if (sessionType.endsWith('_concat')) {
+    return 0;
+  }
+  return 1;
+}
+
+/** Total transcode budget, in 1080p-transcode units. */
+export function transcodeCap(): number {
+  const n = Number(process.env['TUNARR_MAX_TRANSCODE_WEIGHT']);
+  return Number.isFinite(n) && n > 0 ? n : 16;
+}

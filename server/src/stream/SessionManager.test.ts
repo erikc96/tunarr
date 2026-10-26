@@ -28,6 +28,10 @@ class FakeSession extends EventEmitter {
   connections() {
     return this.conns;
   }
+  // Viewers aren't recorded: the tests care about the wrapper's loopback only.
+  addConnection(token: string, c: { userAgent?: string }) {
+    this.emit('addConnection', token, c);
+  }
   removeConnection(token: string) {
     delete this.conns[token];
     this.emit('removeConnection', token, {});
@@ -59,7 +63,10 @@ function setup(maxLingering = 0) {
   const mgr = new SessionManager(
     logger as never,
     channelDB as never,
-    { resumeChannel: vi.fn(), pauseChannel: vi.fn() } as never,
+    {
+      resumeChannel: vi.fn(() => Promise.resolve()),
+      pauseChannel: vi.fn(() => Promise.resolve()),
+    } as never,
     ((_c: unknown, o: { profile?: string }) =>
       mk((o.profile ? `hls~${o.profile}` : 'hls') as SessionType, {
         tok: { userAgent: 'Lavf/62.12.103' },
@@ -160,4 +167,61 @@ describe('profile-keyed sessions', () => {
     expect(sessions['hls~480p']!.stop).toHaveBeenCalled();
     expect(sessions['hls']!.stop).not.toHaveBeenCalled();
   });
+});
+
+describe('weighted admission cap', () => {
+  const withCap = async (cap: string, fn: () => Promise<void>) => {
+    process.env['TUNARR_MAX_TRANSCODE_WEIGHT'] = cap;
+    try {
+      await fn();
+    } finally {
+      delete process.env['TUNARR_MAX_TRANSCODE_WEIGHT'];
+    }
+  };
+
+  test('refuses a new transcode over budget but lets viewers join a running one', () =>
+    withCap('1', async () => {
+      const { mgr } = setup(0);
+      expect(
+        (await mgr.getOrCreateHlsSession('c1', 'a', conn)).isSuccess(),
+      ).toBe(true);
+      const join = await mgr.getOrCreateConcatSession('c1', 'b', conn, {
+        sessionType: 'hls_concat',
+      } as never);
+      expect(join.isSuccess()).toBe(true);
+      const busy = await mgr.getOrCreateHlsSession('c1', 'x', conn, {
+        profile: '480p',
+      });
+      expect(busy.isFailure() && busy.error.type).toBe('busy');
+    }));
+
+  test('weighs by size: a 480p start fits where a second 1080p does not', () =>
+    withCap('1.5', async () => {
+      const { mgr } = setup(5);
+      await mgr.getOrCreateHlsSession('c1', 'a', conn);
+      const big = await mgr.getOrCreateHlsSession('c1', 'b', conn, {
+        profile: '720p',
+      });
+      expect(big.isSuccess()).toBe(true);
+      expect(mgr.activeWeight()).toBe(1.5);
+      const small = await mgr.getOrCreateHlsSession('c1', 'c', conn, {
+        profile: '480p',
+      });
+      expect(small.isFailure()).toBe(true);
+      expect(small.isFailure() && small.error.type).toBe('busy');
+    }));
+
+  test('evicts an idle lingering transcode before refusing', () =>
+    withCap('1', async () => {
+      const { mgr, sessions } = setup(5);
+      await mgr.getOrCreateHlsSession('c1', 'a', conn);
+      sessions['hls']!.removeConnection('tok'); // loopback conn gone
+      sessions['hls']!.removeConnection('a');
+      expect(mgr.getSession('c1', 'hls')).toBeDefined();
+      const next = await mgr.getOrCreateHlsSession('c1', 'z', conn, {
+        profile: '720p',
+      });
+      expect(next.isSuccess()).toBe(true);
+      expect(sessions['hls']!.stop).toHaveBeenCalled();
+    }));
 });

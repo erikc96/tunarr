@@ -1,5 +1,6 @@
 import { BaseHlsSession } from '@/stream/hls/BaseHlsSession.js';
 import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
+import { transcodeCap } from '@/stream/qualityProfiles.js';
 import { loopP99Ms, startLoopMonitor } from '@/util/loopMonitor.js';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -55,6 +56,8 @@ export const debugHealthApiRouter: RouterPluginAsyncCallback = async (
 
     return res.send({
       loopP99Ms: loopP99Ms(),
+      activeWeight: req.serverCtx.sessionManager.activeWeight(),
+      cap: transcodeCap(),
       ffmpegProcs,
       userThreads: threads,
       sessionCount: sessions.length,

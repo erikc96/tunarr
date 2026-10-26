@@ -14,6 +14,7 @@ import {
   values,
 } from 'lodash-es';
 import {
+  BusyError,
   ChannelNotFoundError,
   GenericError,
   TypedError,
@@ -29,7 +30,12 @@ import {
   ProfiledHlsSessionType,
   Session,
 } from './Session.js';
-import { isReducedProfile, QualityProfileName } from './qualityProfiles.js';
+import {
+  isReducedProfile,
+  QualityProfileName,
+  sessionWeight,
+  transcodeCap,
+} from './qualityProfiles.js';
 import {
   HlsSession,
   type HlsSessionProvider,
@@ -295,6 +301,10 @@ export class SessionManager {
             throw new ChannelNotFoundError(channelId);
           }
 
+          // Check and add with no await between, so two channels can't
+          // both take the last slot.
+          this.admit(channelId, sessionType, connection);
+
           session = sessionFactory(channel);
 
           this.addSession(channel.uuid, session.sessionType, session);
@@ -423,6 +433,53 @@ export class SessionManager {
       return Result.success(session);
     } catch (e) {
       return Result.failure(TypedError.fromAny(e));
+    }
+  }
+
+  /** Transcode budget in use, counting idle lingering sessions. */
+  activeWeight() {
+    return Object.values(this.#sessions).reduce(
+      (sum, s) => sum + sessionWeight(s.sessionType),
+      0,
+    );
+  }
+
+  // Throws BusyError when starting this session would pass the transcode
+  // budget, after evicting idle lingering sessions (oldest first).
+  private admit(
+    channelId: string,
+    sessionType: SessionType,
+    connection: StreamConnectionDetails,
+  ) {
+    let cost = sessionWeight(sessionType);
+    if (sessionType.includes(ConcatSuffix)) {
+      // A wrapper pulls in its transcode when that isn't running yet.
+      const base = sessionTypeFromConcatType(
+        sessionType as ConcatSessionOptions['sessionType'],
+      );
+      if (!this.getSession(channelId, base)) {
+        cost += sessionWeight(base);
+      }
+    } else if (isInternalConnection(connection.userAgent)) {
+      // The wrapper's own request for its transcode was admitted with it.
+      return;
+    }
+    if (cost === 0) {
+      return;
+    }
+    const cap = transcodeCap();
+    const idle = [...this.#idleSince.entries()].sort((a, b) => a[1] - b[1]);
+    while (this.activeWeight() + cost > cap && idle.length > 0) {
+      const [key] = idle.shift()!;
+      const victim = this.#sessions[key];
+      this.#idleSince.delete(key);
+      if (victim) {
+        this.deleteSession(victim.keyObj.id, victim.sessionType);
+      }
+    }
+    const active = this.activeWeight();
+    if (active + cost > cap) {
+      throw new BusyError(active, cap);
     }
   }
 
