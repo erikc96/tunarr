@@ -566,14 +566,20 @@ export class SessionManager {
     ) {
       return;
     }
-    const viewers = filter(
-      underlying.connections(),
-      (conn) => !(conn.userAgent?.includes('Tunarr') ?? false),
-    ).length;
-    if (viewers > 0) {
+    // A wrapper's ffmpeg reads the transcode over loopback and never
+    // disconnects; drop those so only real viewers keep the transcode alive.
+    for (const [token, conn] of Object.entries(underlying.connections())) {
+      if (isInternalConnection(conn.userAgent)) {
+        underlying.removeConnection(token);
+      }
+    }
+    if (underlying.numConnections() > 0) {
       return;
     }
-    this.#idleSince.set(sessionCacheKey(id, underlyingType), Date.now());
+    const key = sessionCacheKey(id, underlyingType);
+    if (!this.#idleSince.has(key)) {
+      this.#idleSince.set(key, Date.now());
+    }
     this.evictLingeringSessions();
   }
 
@@ -591,6 +597,10 @@ function sessionTypeFromConcatType(
 }
 
 const ConcatSuffix = '_concat';
+
+// ffmpeg wrappers fetch the playlist with a Lavf user agent.
+const isInternalConnection = (userAgent?: string) =>
+  /^Lavf|Tunarr/.test(userAgent ?? '');
 
 /** Session types of the wrappers that can sit on top of a transcode type. */
 export function concatWrapperTypes(typ: SessionType): SessionType[] {

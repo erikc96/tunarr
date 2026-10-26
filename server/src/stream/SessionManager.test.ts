@@ -28,6 +28,10 @@ class FakeSession extends EventEmitter {
   connections() {
     return this.conns;
   }
+  removeConnection(token: string) {
+    delete this.conns[token];
+    this.emit('removeConnection', token, {});
+  }
   numConnections() {
     return Object.keys(this.conns).length;
   }
@@ -49,13 +53,14 @@ function setup(maxLingering = 0) {
     getChannelOrm: () => Promise.resolve({ uuid: 'c1', transcodeConfig: {} }),
   };
   const sessions: Record<string, FakeSession> = {};
+  // The transcode carries the wrapper ffmpeg's loopback connection, like prod.
   const mk = (t: SessionType, conns = {}) =>
     (sessions[t] = new FakeSession('c1', t, conns));
   const mgr = new SessionManager(
     logger as never,
     channelDB as never,
     { resumeChannel: vi.fn(), pauseChannel: vi.fn() } as never,
-    (() => mk('hls')) as never,
+    (() => mk('hls', { tok: { userAgent: 'Lavf/62.12.103' } })) as never,
     (() => mk('hls_slower')) as never,
     ((_c: unknown, o: { sessionType: SessionType }) =>
       mk(o.sessionType)) as never,
@@ -87,6 +92,18 @@ describe('SessionManager idle on wrapper stop', () => {
     await sessions['hls_concat_fire']!.stop();
     expect(sessions['hls']!.stop).toHaveBeenCalled();
     expect(mgr.getSession('c1', 'hls')).toBeUndefined();
+    expect(sessions['hls']!.numConnections()).toBe(0);
+  });
+
+  test('keeps the transcode while a real viewer is on it', async () => {
+    const { mgr, sessions } = setup(0);
+    await mgr.getOrCreateHlsSession('c1', 't', conn);
+    sessions['hls']!.connections()['viewer'] = { userAgent: 'Mozilla/5.0' };
+    await mgr.getOrCreateConcatSession('c1', 't', conn, {
+      sessionType: 'hls_concat_fire',
+    } as never);
+    await sessions['hls_concat_fire']!.stop();
+    expect(sessions['hls']!.stop).not.toHaveBeenCalled();
   });
 
   test('keeps the transcode while another wrapper remains', async () => {
