@@ -21,8 +21,9 @@ async function countOutputLines(cmd: string, args: string[]) {
   try {
     const { stdout } = await execFileAsync(cmd, args, { maxBuffer: 1 << 26 });
     return stdout.split('\n').filter((l) => l.trim().length > 0).length;
-  } catch {
-    return null;
+  } catch (e) {
+    // pgrep exits 1 when nothing matches
+    return (e as { code?: unknown }).code === 1 ? 0 : null;
   }
 }
 
