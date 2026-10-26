@@ -1,6 +1,7 @@
 import type { Channel } from '@/db/schema/Channel.js';
 import type { BaseHlsSession } from '@/stream/hls/BaseHlsSession.js';
 import type { ConcatSessionOptions } from '@/stream/ConcatSession.js';
+import { fanOut } from '@/stream/fanOut.js';
 import { HlsPlaylistCreator } from '@/stream/hls/HlsPlaylistCreator.js';
 import type { Result } from '@/types/result.js';
 import { TruthyQueryParam } from '@/types/schemas.js';
@@ -181,9 +182,10 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       // in fastify on the send).
       // TODO: We could probably record periodic heartbeats by listening
       // to the data event on this piped stream. Just debounce them!
-      const piped = session.rawStream.pipe(
-        new PassThrough({ allowHalfOpen: false }),
-      );
+      const piped = new PassThrough({ allowHalfOpen: false });
+      // Not pipe(): that pauses the raw stream for every viewer while the
+      // slowest one drains. A viewer that falls ~8 MB behind is dropped.
+      fanOut(session.rawStream, piped);
 
       piped.on('close', () => {
         logger.debug(
