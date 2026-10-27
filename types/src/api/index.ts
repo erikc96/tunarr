@@ -312,6 +312,7 @@ export const ChannelSessionsResponseSchema = z.object({
     // Reduced-size transcodes and the wrappers that serve them.
     z.templateLiteral(['hls~', z.enum(['480p', '720p'])]),
     z.templateLiteral(['hls~', z.enum(['480p', '720p']), '_concat']),
+    z.literal('hls~480p_concat_fire'),
   ]),
   state: z.string(),
   numConnections: z.number().nonnegative(),

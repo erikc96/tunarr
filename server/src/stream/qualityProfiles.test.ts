@@ -1,6 +1,7 @@
 import {
   applyProfile,
   profileWeight,
+  sessionWeight,
   resolveProfile,
 } from './qualityProfiles.ts';
 
@@ -44,5 +45,12 @@ describe('applyProfile', () => {
         profileWeight(p as never),
       ),
     ).toEqual([1, 1, 0.5, 0.25]);
+  });
+  test('fire wrapper over the 480p transcode costs .25 + .25', () => {
+    expect(
+      sessionWeight('hls~480p') + sessionWeight('hls~480p_concat_fire'),
+    ).toBe(0.5);
+    expect(sessionWeight('hls_concat_fire')).toBe(0.5);
+    expect(sessionWeight('hls_concat_low')).toBe(0.25);
   });
 });

@@ -40,7 +40,8 @@ export type ProfiledHlsSessionType = `hls~${ReducedProfileName}`;
 export type LowQualityConcatSessionType =
   | `${ChannelConcatStreamMode}_low`
   | `${ChannelConcatStreamMode}_fire`
-  | `${ProfiledHlsSessionType}${typeof ConcatSessionSuffix}`;
+  | `${ProfiledHlsSessionType}${typeof ConcatSessionSuffix}`
+  | `hls~480p${typeof ConcatSessionSuffix}_fire`;
 
 export type SessionType =
   | ChannelStreamMode

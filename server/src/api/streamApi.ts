@@ -57,9 +57,13 @@ export function concatSessionTypeForQuality(
   quality: 'high' | 'low' | 'fire' | undefined,
   profile?: QualityProfileName,
 ): ConcatSessionOptions['sessionType'] {
-  // Fire keeps its own re-encode; otherwise a reduced profile gets its own
-  // transcode instead of re-encoding the full-size one.
-  if (mode === 'hls' && quality !== 'fire' && isReducedProfile(profile)) {
+  // Fire re-encodes (8-bit) on top of the 480p transcode, so no 1080p ffmpeg
+  // runs for it; otherwise a reduced profile gets its own transcode instead
+  // of re-encoding the full-size one.
+  if (mode === 'hls' && quality === 'fire') {
+    return 'hls~480p_concat_fire';
+  }
+  if (mode === 'hls' && isReducedProfile(profile)) {
     return `hls~${profile}_concat`;
   }
   return quality === 'low' || quality === 'fire'

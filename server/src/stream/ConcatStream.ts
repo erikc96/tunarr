@@ -26,8 +26,11 @@ export class ConcatStream {
       : this.streamMode.endsWith('_fire')
         ? 'fire'
         : undefined;
-    // 'hls~480p_concat' wraps the 480p transcode and is a plain copy.
-    const profile = /^hls~(480p|720p)_concat$/.exec(this.streamMode)?.[1];
+    // 'hls~480p_concat' wraps the 480p transcode and is a plain copy;
+    // 'hls~480p_concat_fire' re-encodes that for the Fire.
+    const profile = /^hls~(480p|720p)_concat(_fire)?$/.exec(
+      this.streamMode,
+    )?.[1];
     const streamMode = this.streamMode
       .replace(/_(low|fire)$/, '')
       .replace(/^hls~\w+_concat$/, 'hls_concat') as ChannelConcatStreamMode;

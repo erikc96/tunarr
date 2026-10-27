@@ -103,6 +103,9 @@ export function sessionWeight(sessionType: string): number {
       ? 0
       : QUALITY_PROFILES[profiled[1] as ReducedProfileName].weight;
   }
+  if (sessionType === 'hls~480p_concat_fire') {
+    return 0.25;
+  }
   if (sessionType.endsWith('_concat_fire')) {
     return 0.5;
   }
