@@ -68,6 +68,9 @@ export class SessionManager {
   // Transcode sessions with no viewers, and when they lost their last one.
   #idleSince = new Map<SessionKey, number>();
   #createdAt = new Map<SessionKey, number>();
+  // A wrapper's transcode is started a moment later by the wrapper's own
+  // ffmpeg; its budget is held from admission until then.
+  #reserved = new Map<SessionKey, { weight: number; at: number }>();
 
   constructor(
     @inject(KEYS.Logger) private logger: Logger,
@@ -438,9 +441,21 @@ export class SessionManager {
 
   /** Transcode budget in use, counting idle lingering sessions. */
   activeWeight() {
-    return Object.values(this.#sessions).reduce(
-      (sum, s) => sum + sessionWeight(s.sessionType),
-      0,
+    const now = Date.now();
+    let reserved = 0;
+    for (const [key, r] of this.#reserved) {
+      if (key in this.#sessions || now - r.at > 60_000) {
+        this.#reserved.delete(key);
+      } else {
+        reserved += r.weight;
+      }
+    }
+    return (
+      reserved +
+      Object.values(this.#sessions).reduce(
+        (sum, s) => sum + sessionWeight(s.sessionType),
+        0,
+      )
     );
   }
 
@@ -452,13 +467,16 @@ export class SessionManager {
     connection: StreamConnectionDetails,
   ) {
     let cost = sessionWeight(sessionType);
+    let reserveKey: SessionKey | undefined;
     if (sessionType.includes(ConcatSuffix)) {
       // A wrapper pulls in its transcode when that isn't running yet.
       const base = sessionTypeFromConcatType(
         sessionType as ConcatSessionOptions['sessionType'],
       );
-      if (!this.getSession(channelId, base)) {
+      const baseKey = sessionCacheKey(channelId, base);
+      if (!this.getSession(channelId, base) && !this.#reserved.has(baseKey)) {
         cost += sessionWeight(base);
+        reserveKey = baseKey;
       }
     } else if (isInternalConnection(connection.userAgent)) {
       // The wrapper's own request for its transcode was admitted with it.
@@ -480,6 +498,12 @@ export class SessionManager {
     const active = this.activeWeight();
     if (active + cost > cap) {
       throw new BusyError(active, cap);
+    }
+    if (reserveKey) {
+      this.#reserved.set(reserveKey, {
+        weight: cost - sessionWeight(sessionType),
+        at: Date.now(),
+      });
     }
   }
 

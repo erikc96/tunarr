@@ -225,3 +225,23 @@ describe('weighted admission cap', () => {
       expect(sessions['hls']!.stop).toHaveBeenCalled();
     }));
 });
+
+describe("admission holds the budget for a wrapper's pending transcode", () => {
+  test('concurrent wrappers on different channels cannot overshoot the cap', async () => {
+    process.env['TUNARR_MAX_TRANSCODE_WEIGHT'] = '2';
+    try {
+      const { mgr } = setup(0);
+      const results = await Promise.all(
+        ['c1', 'c2', 'c3'].map((c) =>
+          mgr.getOrCreateConcatSession(c, 't', conn, {
+            sessionType: 'hls_concat',
+          } as never),
+        ),
+      );
+      expect(results.filter((r) => r.isSuccess())).toHaveLength(2);
+      expect(results.filter((r) => r.isFailure())).toHaveLength(1);
+    } finally {
+      delete process.env['TUNARR_MAX_TRANSCODE_WEIGHT'];
+    }
+  });
+});

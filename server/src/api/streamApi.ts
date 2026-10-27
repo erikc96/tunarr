@@ -42,6 +42,8 @@ const deviceForRequest = async (req: FastifyRequest) => {
     : undefined;
 };
 
+const MAX_CONNECTION_MS = 12 * 60 * 60 * 1000;
+
 export const ChannelTsQuerySchema = z.object({
   streamMode: ChannelStreamModeSchema.optional(),
   quality: z.enum(['high', 'low', 'fire']).optional(),
@@ -258,6 +260,13 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         );
         piped.end();
       };
+      // A viewer left running for days (a TV nobody turned off) is cut after
+      // MAX_CONNECTION_MS; the player reconnects or shows "still watching?".
+      const maxAge = setTimeout(() => {
+        logger.info({ token, ip: req.ip }, 'Max connection age - closing');
+        piped.end();
+      }, MAX_CONNECTION_MS);
+      piped.on('close', () => clearTimeout(maxAge));
       session.on('end', onEnd);
       session.on('cleanup', onCleanup);
       session.on('error', onError);
