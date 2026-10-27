@@ -65,6 +65,14 @@ type StreamSessionEvents = {
   end: () => void;
 };
 
+// ffmpeg wrappers fetch the playlist with a Lavf user agent.
+export const isInternalConnection = (userAgent?: string) =>
+  /^Lavf|Tunarr/.test(userAgent ?? '');
+
+// A wrapper polls its playlist every few seconds; one that stops is gone, and
+// its last connection must not pin the transcode for the usual 30 s.
+const INTERNAL_STALENESS_MS = 15_000;
+
 export abstract class Session<
   TOpts extends SessionOptions = SessionOptions,
 > extends (events.EventEmitter as new () => TypedEventEmitter<StreamSessionEvents>) {
@@ -293,11 +301,14 @@ export abstract class Session<
    */
   removeStaleConnections() {
     const now = dayjs().valueOf();
+    const connections = this.connections();
     const [aliveConnections, staleConnections] = partition(
-      keys(this.connections()),
+      keys(connections),
       (token) =>
         now - this.lastHeartbeat(token)! <
-        (this.sessionOptions.stalenessMs ?? 30_000),
+        (isInternalConnection(connections[token]?.userAgent)
+          ? INTERNAL_STALENESS_MS
+          : (this.sessionOptions.stalenessMs ?? 30_000)),
     );
 
     // Cleanup stale connections

@@ -106,6 +106,11 @@ export function sessionWeight(sessionType: string): number {
   if (sessionType === 'hls~480p_concat_fire') {
     return 0.25;
   }
+  if (sessionType === 'mpegts_concat') {
+    // No transcode session sits under it: its own per-program ffmpeg runs
+    // at the channel's size for as long as the wrapper lives.
+    return 1;
+  }
   if (sessionType.endsWith('_concat_fire')) {
     return 0.5;
   }

@@ -43,6 +43,9 @@ export const debugHealthApiRouter: RouterPluginAsyncCallback = async (
           type: info.session.sessionType,
           ageMs: info.ageMs,
           connections: info.session.numConnections(),
+          agents: Object.values(info.session.connections()).map(
+            (c) => c.userAgent ?? null,
+          ),
           idleForMs: info.idleForMs,
           m3u8Lines:
             info.session instanceof BaseHlsSession
@@ -57,6 +60,7 @@ export const debugHealthApiRouter: RouterPluginAsyncCallback = async (
     return res.send({
       loopP99Ms: loopP99Ms(),
       activeWeight: req.serverCtx.sessionManager.activeWeight(),
+      reservedWeight: req.serverCtx.sessionManager.reservedWeight(),
       cap: transcodeCap(),
       ffmpegProcs,
       userThreads: threads,

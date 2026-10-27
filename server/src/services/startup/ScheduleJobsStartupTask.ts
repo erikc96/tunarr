@@ -53,7 +53,10 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       CleanupSessionsTask.ID,
       new ScheduledTask(
         CleanupSessionsTask,
-        minutesCrontab(1),
+        // Every 10 s: a dead wrapper's straggling loopback connection goes
+        // stale 30 s after its last heartbeat, and the transcode it pinned
+        // should be gone within the minute.
+        '*/10 * * * * *',
         container.get<interfaces.AutoFactory<CleanupSessionsTask>>(
           CleanupSessionsTask.KEY,
         ),

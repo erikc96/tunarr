@@ -15,6 +15,7 @@ class FakeSession extends EventEmitter {
     }
     return Promise.resolve();
   });
+  scheduleCleanup = vi.fn();
   constructor(
     readonly id: string,
     readonly sessionType: SessionType,
@@ -243,5 +244,81 @@ describe("admission holds the budget for a wrapper's pending transcode", () => {
     } finally {
       delete process.env['TUNARR_MAX_TRANSCODE_WEIGHT'];
     }
+  });
+});
+
+describe('stress-test regressions', () => {
+  const withCap = async (cap: string, fn: () => Promise<void>) => {
+    process.env['TUNARR_MAX_TRANSCODE_WEIGHT'] = cap;
+    try {
+      await fn();
+    } finally {
+      delete process.env['TUNARR_MAX_TRANSCODE_WEIGHT'];
+    }
+  };
+
+  test('an mpegts wrapper costs 1 and reserves nothing for a transcode that never comes', () =>
+    withCap('3', async () => {
+      const { mgr } = setup(0);
+      await mgr.getOrCreateConcatSession('c1', 't', conn, {
+        sessionType: 'mpegts_concat',
+      } as never);
+      expect(mgr.reservedWeight()).toBe(0);
+      expect(mgr.activeWeight()).toBe(1);
+    }));
+
+  test('a wrapper that stops before its transcode starts gives its reservation back', () =>
+    withCap('3', async () => {
+      const { mgr, sessions } = setup(0);
+      await mgr.getOrCreateConcatSession('c1', 't', conn, {
+        sessionType: 'hls_concat',
+      } as never);
+      expect(mgr.reservedWeight()).toBe(1);
+      await sessions['hls_concat']!.stop();
+      expect(mgr.reservedWeight()).toBe(0);
+      expect(mgr.activeWeight()).toBe(0);
+    }));
+
+  test('an idle transcode schedules its own cleanup instead of waiting for the sweep', async () => {
+    const { mgr, sessions } = setup(5);
+    await mgr.getOrCreateHlsSession('c1', 't', conn);
+    await mgr.getOrCreateConcatSession('c1', 't', conn, {
+      sessionType: 'hls_concat',
+    } as never);
+    await sessions['hls_concat']!.stop();
+    expect(sessions['hls']!.scheduleCleanup).toHaveBeenCalled();
+  });
+
+  test('a wrapper still in its grace period is released to make room', () =>
+    withCap('1', async () => {
+      const { mgr, sessions } = setup(5);
+      await mgr.getOrCreateConcatSession('c1', 't', conn, {
+        sessionType: 'hls_concat',
+      } as never);
+      // The wrapper's ffmpeg starts the transcode, then its viewer leaves.
+      await mgr.getOrCreateHlsSession('c1', 'tok', {
+        ...conn,
+        userAgent: 'Lavf/62',
+      });
+      sessions['hls_concat']!.removeConnection('viewer');
+      expect(mgr.getSession('c1', 'hls_concat')).toBeDefined();
+      const next = await mgr.getOrCreateHlsSession('c2', 'z', conn, {
+        profile: '480p',
+      });
+      expect(next.isSuccess()).toBe(true);
+      expect(mgr.getSession('c1', 'hls_concat')).toBeUndefined();
+      expect(mgr.getSession('c1', 'hls')).toBeUndefined();
+    }));
+
+  test("a stopped session's late cleanup does not tear down its replacement", async () => {
+    const { mgr, sessions } = setup(5);
+    await mgr.getOrCreateHlsSession('c1', 't', conn);
+    const old = sessions['hls']!;
+    await mgr.endSession('c1', 'hls');
+    await mgr.getOrCreateHlsSession('c1', 't', conn);
+    const fresh = sessions['hls']!;
+    expect(fresh).not.toBe(old);
+    old.emit('cleanup');
+    expect(mgr.getSession('c1', 'hls')).toBe(fresh);
   });
 });

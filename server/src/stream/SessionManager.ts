@@ -27,6 +27,7 @@ import {
 import { sessionsToEvict } from './ConnectionTracker.ts';
 import {
   HlsConcatSessionType,
+  isInternalConnection,
   ProfiledHlsSessionType,
   Session,
 } from './Session.js';
@@ -68,6 +69,8 @@ export class SessionManager {
   // Transcode sessions with no viewers, and when they lost their last one.
   #idleSince = new Map<SessionKey, number>();
   #createdAt = new Map<SessionKey, number>();
+  // Wrappers whose last viewer left and that are waiting out their grace period.
+  #viewerless = new Set<SessionKey>();
   // A wrapper's transcode is started a moment later by the wrapper's own
   // ffmpeg; its budget is held from admission until then.
   #reserved = new Map<SessionKey, { weight: number; at: number }>();
@@ -163,6 +166,7 @@ export class SessionManager {
   }
 
   async endSession(session: Session): Promise<void>;
+  async endSession(id: string, sessionType: SessionType): Promise<void>;
   async endSession(
     idOrSession: string | Session,
     maybeSessionType?: SessionType,
@@ -335,10 +339,19 @@ export class SessionManager {
             });
           });
 
+          // A stopped session's events can arrive after a new session took
+          // its key; they must not tear that one down.
+          const isCurrent = () => {
+            const current = this.getSession(channelId, sessionType);
+            return current === undefined || current === session;
+          };
+
           session.on('stop', () => {
-            this.deleteSession(channelId, sessionType);
-            this.shutdownChildSessions(channelId, sessionType);
-            this.idleUnderlyingSession(channelId, sessionType);
+            if (isCurrent()) {
+              this.deleteSession(channelId, sessionType);
+              this.shutdownChildSessions(channelId, sessionType);
+              this.idleUnderlyingSession(channelId, sessionType);
+            }
             if (session) {
               this.pauseChannelIfNecessary(session, connection).catch(() => {});
             }
@@ -354,6 +367,9 @@ export class SessionManager {
           });
 
           session.on('cleanup', () => {
+            if (!isCurrent()) {
+              return;
+            }
             this.deleteSession(channelId, sessionType);
             this.shutdownChildSessions(channelId, sessionType);
             this.idleUnderlyingSession(channelId, sessionType);
@@ -361,6 +377,7 @@ export class SessionManager {
 
           session.on('addConnection', () => {
             this.#idleSince.delete(sessionCacheKey(channelId, sessionType));
+            this.#viewerless.delete(sessionCacheKey(channelId, sessionType));
           });
 
           session.on('removeConnection', (_, connection) => {
@@ -381,7 +398,13 @@ export class SessionManager {
                 sessionCacheKey(channelId, sessionType),
                 Date.now(),
               );
+              session.scheduleCleanup();
               this.evictLingeringSessions();
+            } else if (
+              session?.isConcatSession() &&
+              session.numConnections() === 0
+            ) {
+              this.#viewerless.add(sessionCacheKey(channelId, sessionType));
             }
             this.eventService.push({
               type: 'stream',
@@ -439,8 +462,8 @@ export class SessionManager {
     }
   }
 
-  /** Transcode budget in use, counting idle lingering sessions. */
-  activeWeight() {
+  /** Budget held for wrapper transcodes that haven't started yet. */
+  reservedWeight() {
     const now = Date.now();
     let reserved = 0;
     for (const [key, r] of this.#reserved) {
@@ -450,8 +473,13 @@ export class SessionManager {
         reserved += r.weight;
       }
     }
+    return reserved;
+  }
+
+  /** Transcode budget in use, counting idle lingering sessions. */
+  activeWeight() {
     return (
-      reserved +
+      this.reservedWeight() +
       Object.values(this.#sessions).reduce(
         (sum, s) => sum + sessionWeight(s.sessionType),
         0,
@@ -468,32 +496,66 @@ export class SessionManager {
   ) {
     let cost = sessionWeight(sessionType);
     let reserveKey: SessionKey | undefined;
+    // The transcode a new wrapper reads: evicting it would leave the wrapper's
+    // ffmpeg to start it again outside the budget.
+    let needed: SessionKey | undefined;
     if (sessionType.includes(ConcatSuffix)) {
       // A wrapper pulls in its transcode when that isn't running yet.
       const base = sessionTypeFromConcatType(
         sessionType as ConcatSessionOptions['sessionType'],
       );
       const baseKey = sessionCacheKey(channelId, base);
-      if (!this.getSession(channelId, base) && !this.#reserved.has(baseKey)) {
+      needed = baseKey;
+      // mpegts has no transcode session to wait for (it's in the wrapper's weight).
+      if (
+        base !== 'mpegts' &&
+        !this.getSession(channelId, base) &&
+        !this.#reserved.has(baseKey)
+      ) {
         cost += sessionWeight(base);
         reserveKey = baseKey;
       }
     } else if (isInternalConnection(connection.userAgent)) {
-      // The wrapper's own request for its transcode was admitted with it.
-      return;
+      // The wrapper's own request for its transcode was admitted with it. With
+      // no wrapper left (its viewer left, or it was released for budget), this
+      // is just another client and pays its own way.
+      if (
+        concatWrapperTypes(sessionType).some((t) =>
+          this.getSession(channelId, t),
+        )
+      ) {
+        return;
+      }
     }
     if (cost === 0) {
       return;
     }
     const cap = transcodeCap();
-    const idle = [...this.#idleSince.entries()].sort((a, b) => a[1] - b[1]);
-    while (this.activeWeight() + cost > cap && idle.length > 0) {
-      const [key] = idle.shift()!;
-      const victim = this.#sessions[key];
-      this.#idleSince.delete(key);
-      if (victim) {
-        this.deleteSession(victim.keyObj.id, victim.sessionType);
+    const evictIdle = () => {
+      const idle = [...this.#idleSince.entries()]
+        .filter(([key]) => key !== needed)
+        .sort((a, b) => a[1] - b[1]);
+      while (this.activeWeight() + cost > cap && idle.length > 0) {
+        const [key] = idle.shift()!;
+        const victim = this.#sessions[key];
+        this.#idleSince.delete(key);
+        if (victim) {
+          this.deleteSession(victim.keyObj.id, victim.sessionType);
+        }
       }
+    };
+    evictIdle();
+    if (this.activeWeight() + cost > cap) {
+      // A wrapper with no viewer is only waiting out its short grace period;
+      // let go of it now so its transcode can go idle and be evicted.
+      for (const key of [...this.#viewerless]) {
+        const s = this.#sessions[key];
+        if (s && s.numConnections() === 0) {
+          this.deleteSession(s.keyObj.id, s.sessionType);
+          this.idleUnderlyingSession(s.keyObj.id, s.sessionType);
+        }
+      }
+      evictIdle();
     }
     const active = this.activeWeight();
     if (active + cost > cap) {
@@ -517,6 +579,21 @@ export class SessionManager {
     const key = sessionCacheKey(id, sessionType);
     this.#idleSince.delete(key);
     this.#createdAt.delete(key);
+    this.#viewerless.delete(key);
+    if (sessionType.includes(ConcatSuffix)) {
+      // The wrapper's ffmpeg never got to start its transcode: give back the
+      // budget held for it (unless another wrapper is waiting on it too).
+      const base = sessionTypeFromConcatType(
+        sessionType as ConcatSessionOptions['sessionType'],
+      );
+      if (
+        concatWrapperTypes(base).every(
+          (t) => t === sessionType || !this.getSession(id, t),
+        )
+      ) {
+        this.#reserved.delete(sessionCacheKey(id, base));
+      }
+    }
     ifDefined(this.#sessions[key], (session) => {
       session.stop().catch((e) => {
         this.logger.error(
@@ -670,6 +747,7 @@ export class SessionManager {
     if (!this.#idleSince.has(key)) {
       this.#idleSince.set(key, Date.now());
     }
+    underlying.scheduleCleanup();
     this.evictLingeringSessions();
   }
 
@@ -687,10 +765,6 @@ function sessionTypeFromConcatType(
 }
 
 const ConcatSuffix = '_concat';
-
-// ffmpeg wrappers fetch the playlist with a Lavf user agent.
-const isInternalConnection = (userAgent?: string) =>
-  /^Lavf|Tunarr/.test(userAgent ?? '');
 
 /** Session types of the wrappers that can sit on top of a transcode type. */
 export function concatWrapperTypes(typ: SessionType): SessionType[] {
