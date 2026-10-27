@@ -205,7 +205,7 @@ export function isAudioPipelineContext(
 
 const HlsWrapQualityProfiles = {
   low: { width: 854, height: 480, videoKbps: 1200, audioKbps: 96 },
-  fire: { width: 1280, height: 720, videoKbps: 3000, audioKbps: 128 },
+  fire: { width: 854, height: 480, videoKbps: 1200, audioKbps: 96 },
 } as const;
 
 export abstract class BasePipelineBuilder implements PipelineBuilder {
