@@ -21,6 +21,7 @@ import { channelsApi } from './channelsApi.js';
 import { CreditsApiController } from './creditsApi.ts';
 import { customShowsApiV2 } from './customShowsApi.js';
 import { debugApi } from './debugApi.js';
+import { clientDevicesApiRouter } from './clientDevicesApi.js';
 import { embyApiRouter } from './embyApi.ts';
 import { ffmpegSettingsRouter } from './ffmpegSettingsApi.js';
 import { fillerListsApi } from './fillerListsApi.js';
@@ -72,6 +73,7 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
     .register(plexSettingsRouter)
     .register(xmlTvSettingsRouter)
     .register(hdhrSettingsRouter)
+    .register(clientDevicesApiRouter)
     .register(systemApiRouter)
     .register(guideRouter)
     .register(plexApiRouter)
