@@ -75,6 +75,9 @@ export class HlsSession extends BaseHlsSession {
             this.#playlistStart,
             filterBefore,
             playlistLines,
+            10,
+            false,
+            dayjs().add(4, 'seconds'),
           );
           const now = dayjs();
           if (now.isAfter(this.#lastDelete.add(30, 'seconds'))) {

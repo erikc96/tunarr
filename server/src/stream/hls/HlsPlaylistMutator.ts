@@ -37,6 +37,10 @@ export class HlsPlaylistMutator {
     playlistLines: string[],
     maxSegments: number = 10,
     endWithDiscontinuity: boolean = false,
+    // Serve only segments that have started by this time, so the window
+    // slides with the clock instead of staying on the first segments while
+    // the transcode runs ahead of real time.
+    liveEdge?: Dayjs,
   ): TrimPlaylistResult {
     const { items, discontinuitySeq } = this.parsePlaylist(
       start,
@@ -49,6 +53,7 @@ export class HlsPlaylistMutator {
       filterBefore,
       discontinuitySeq,
       maxSegments,
+      liveEdge,
     );
 
     return {
@@ -124,6 +129,7 @@ export class HlsPlaylistMutator {
     filterBefore: Dayjs,
     discontinuitySequence: number,
     maxSegments: number,
+    liveEdge?: Dayjs,
   ) {
     if (first(items)?.type === 'discontinuity') {
       discontinuitySequence++;
@@ -139,7 +145,17 @@ export class HlsPlaylistMutator {
       (item): item is PlaylistSegment => item.type === 'segment',
     );
 
-    if (allSegments.length > maxSegments) {
+    if (liveEdge) {
+      const started = allSegments.filter(
+        (segment) => !segment.startTime.isAfter(liveEdge),
+      );
+      // Never serve an empty playlist; the first segment is always usable.
+      allSegments = started.length > 0 ? started : take(allSegments, 1);
+    }
+
+    if (liveEdge && allSegments.length > maxSegments) {
+      allSegments = takeRight(allSegments, maxSegments);
+    } else if (allSegments.length > maxSegments) {
       const afterTimeFilter = reject(allSegments, (segment) =>
         segment.startTime.isBefore(filterBefore),
       );
