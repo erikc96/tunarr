@@ -2068,7 +2068,7 @@ export type GetChannelsResponses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+            type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -2269,7 +2269,7 @@ export type CreateChannelV2Responses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+            type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -2427,7 +2427,7 @@ export type GetChannelsByNumberV2Responses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+            type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -2620,7 +2620,7 @@ export type PutApiChannelsByIdResponses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+            type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -7089,7 +7089,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
                     transcodeConfigId: string;
                     sessions?: Array<{
-                        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+                        type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
                         state: string;
                         numConnections: number;
                         connections: Array<{
@@ -7333,7 +7333,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
                     transcodeConfigId: string;
                     sessions?: Array<{
-                        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+                        type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
                         state: string;
                         numConnections: number;
                         connections: Array<{
@@ -7434,6 +7434,163 @@ export type GetApiChannelsByIdScheduleResponses = {
 };
 
 export type GetApiChannelsByIdScheduleResponse = GetApiChannelsByIdScheduleResponses[keyof GetApiChannelsByIdScheduleResponses];
+
+export type GetApiChannelsByIdSchedulingOperationsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/scheduling-operations';
+};
+
+export type GetApiChannelsByIdSchedulingOperationsErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+};
+
+export type GetApiChannelsByIdSchedulingOperationsError = GetApiChannelsByIdSchedulingOperationsErrors[keyof GetApiChannelsByIdSchedulingOperationsErrors];
+
+export type GetApiChannelsByIdSchedulingOperationsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        operations: Array<{
+            allowMultiple?: false;
+            type: 'modifier';
+            id: 'add_padding';
+            mod: number;
+            allowedOffsets?: Array<number>;
+            alignChannelStartTime: boolean;
+            snapMode?: 'none' | 'half-hour' | 'hour';
+        } | {
+            allowMultiple?: boolean;
+            type: 'modifier';
+            id: 'scheduled_redirect';
+            channelId: string;
+            startHour: number;
+            duration: number;
+        } | {
+            allowMultiple?: boolean;
+            type: 'ordering';
+            id: 'random_sort';
+        } | {
+            allowMultiple?: boolean;
+            type: 'ordering';
+            ascending: boolean;
+            id: 'release_date_sort';
+        } | {
+            allowMultiple?: false;
+            type: 'modifier';
+            id: 'insert_bumpers';
+            packId: string;
+            betweenCount?: number;
+            withinInterruptCount?: number;
+        }>;
+    };
+};
+
+export type GetApiChannelsByIdSchedulingOperationsResponse = GetApiChannelsByIdSchedulingOperationsResponses[keyof GetApiChannelsByIdSchedulingOperationsResponses];
+
+export type PutApiChannelsByIdSchedulingOperationsData = {
+    body: {
+        operations: Array<{
+            allowMultiple?: false;
+            type: 'modifier';
+            id: 'add_padding';
+            mod: number;
+            allowedOffsets?: Array<number>;
+            alignChannelStartTime?: boolean;
+            snapMode?: 'none' | 'half-hour' | 'hour';
+        } | {
+            allowMultiple?: boolean;
+            type: 'modifier';
+            id: 'scheduled_redirect';
+            channelId: string;
+            startHour: number;
+            duration: number;
+        } | {
+            allowMultiple?: boolean;
+            type: 'ordering';
+            id: 'random_sort';
+        } | {
+            allowMultiple?: boolean;
+            type: 'ordering';
+            ascending?: boolean;
+            id: 'release_date_sort';
+        } | {
+            allowMultiple?: false;
+            type: 'modifier';
+            id: 'insert_bumpers';
+            packId: string;
+            betweenCount?: number;
+            withinInterruptCount?: number;
+        }>;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/scheduling-operations';
+};
+
+export type PutApiChannelsByIdSchedulingOperationsErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+};
+
+export type PutApiChannelsByIdSchedulingOperationsError = PutApiChannelsByIdSchedulingOperationsErrors[keyof PutApiChannelsByIdSchedulingOperationsErrors];
+
+export type PutApiChannelsByIdSchedulingOperationsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        operations: Array<{
+            allowMultiple?: false;
+            type: 'modifier';
+            id: 'add_padding';
+            mod: number;
+            allowedOffsets?: Array<number>;
+            alignChannelStartTime: boolean;
+            snapMode?: 'none' | 'half-hour' | 'hour';
+        } | {
+            allowMultiple?: boolean;
+            type: 'modifier';
+            id: 'scheduled_redirect';
+            channelId: string;
+            startHour: number;
+            duration: number;
+        } | {
+            allowMultiple?: boolean;
+            type: 'ordering';
+            id: 'random_sort';
+        } | {
+            allowMultiple?: boolean;
+            type: 'ordering';
+            ascending: boolean;
+            id: 'release_date_sort';
+        } | {
+            allowMultiple?: false;
+            type: 'modifier';
+            id: 'insert_bumpers';
+            packId: string;
+            betweenCount?: number;
+            withinInterruptCount?: number;
+        }>;
+    };
+};
+
+export type PutApiChannelsByIdSchedulingOperationsResponse = PutApiChannelsByIdSchedulingOperationsResponses[keyof PutApiChannelsByIdSchedulingOperationsResponses];
 
 export type GetApiCustomShowsData = {
     body?: never;
@@ -13135,6 +13292,20 @@ export type GetApiDebugStreamsProgramsByIdResponses = {
     200: unknown;
 };
 
+export type GetApiDebugStreamsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/debug/streams';
+};
+
+export type GetApiDebugStreamsResponses = {
+    /**
+     * Default Response
+     */
+    200: unknown;
+};
+
 export type GetApiDebugFfmpegProbeData = {
     body?: never;
     path?: never;
@@ -14905,6 +15076,8 @@ export type GetApiFfmpegSettingsResponses = {
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
+        idleSessionLingerSeconds: number;
+        maxLingeringSessions: number;
     };
 };
 
@@ -14946,6 +15119,8 @@ export type PutApiFfmpegSettingsData = {
         deinterlaceFilter?: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat?: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction?: boolean;
+        idleSessionLingerSeconds?: number;
+        maxLingeringSessions?: number;
     };
     path?: never;
     query?: never;
@@ -14988,6 +15163,8 @@ export type PutApiFfmpegSettingsResponses = {
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
+        idleSessionLingerSeconds: number;
+        maxLingeringSessions: number;
     };
 };
 
@@ -15632,6 +15809,73 @@ export type PutApiHdhrSettingsResponses = {
 
 export type PutApiHdhrSettingsResponse = PutApiHdhrSettingsResponses[keyof PutApiHdhrSettingsResponses];
 
+export type GetApiClientDevicesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/client-devices';
+};
+
+export type GetApiClientDevicesResponses = {
+    /**
+     * Default Response
+     */
+    200: unknown;
+};
+
+export type PostApiClientDevicesData = {
+    body: {
+        name: string;
+        slug: string;
+        profile: '480p' | '720p' | '1080p';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/client-devices';
+};
+
+export type PostApiClientDevicesResponses = {
+    /**
+     * Default Response
+     */
+    200: unknown;
+};
+
+export type DeleteApiClientDevicesByIdData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/client-devices/{id}';
+};
+
+export type DeleteApiClientDevicesByIdResponses = {
+    /**
+     * Default Response
+     */
+    200: unknown;
+};
+
+export type PatchApiClientDevicesByIdData = {
+    body?: {
+        name?: string;
+        profile?: '480p' | '720p' | '1080p';
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/client-devices/{id}';
+};
+
+export type PatchApiClientDevicesByIdResponses = {
+    /**
+     * Default Response
+     */
+    200: unknown;
+};
+
 export type GetApiSystemHealthData = {
     body?: never;
     path?: never;
@@ -15715,7 +15959,7 @@ export type GetApiSystemSettingsResponses = {
         server: {
             port: number;
             searchSettings: {
-                maxIndexingMemory?: number;
+                maxIndexingMemory: number;
                 snapshotIntervalHours: number;
             };
         };
@@ -15837,7 +16081,7 @@ export type PutApiSystemSettingsResponses = {
         server: {
             port: number;
             searchSettings: {
-                maxIndexingMemory?: number;
+                maxIndexingMemory: number;
                 snapshotIntervalHours: number;
             };
         };
@@ -18643,7 +18887,7 @@ export type GetApiSessionsResponses = {
      */
     200: {
         [key: string]: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+            type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -18680,7 +18924,7 @@ export type DeleteApiChannelsByIdSessionsResponses = {
      * Default Response
      */
     200: {
-        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+        type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
         state: string;
         numConnections: number;
         connections: Array<{
@@ -18720,7 +18964,7 @@ export type GetApiChannelsByIdSessionsResponses = {
      * Default Response
      */
     200: Array<{
-        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat';
+        type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
         state: string;
         numConnections: number;
         connections: Array<{
@@ -20054,6 +20298,647 @@ export type GetApiCreditsByIdArtworkByArtworkTypeResponses = {
     200: unknown;
 };
 
+export type GetApiAiSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai/settings';
+};
+
+export type GetApiAiSettingsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        model: string;
+        enabled: boolean;
+        hasApiKey: boolean;
+        autoScanEnabled: boolean;
+        autoScanIntervalMinutes: number;
+    };
+};
+
+export type GetApiAiSettingsResponse = GetApiAiSettingsResponses[keyof GetApiAiSettingsResponses];
+
+export type PutApiAiSettingsData = {
+    body?: {
+        apiKey?: string;
+        model?: string;
+        enabled?: boolean;
+        autoScanEnabled?: boolean;
+        autoScanIntervalMinutes?: number;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai/settings';
+};
+
+export type PutApiAiSettingsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        model: string;
+        enabled: boolean;
+        hasApiKey: boolean;
+        autoScanEnabled: boolean;
+        autoScanIntervalMinutes: number;
+    };
+};
+
+export type PutApiAiSettingsResponse = PutApiAiSettingsResponses[keyof PutApiAiSettingsResponses];
+
+export type PostApiAiSettingsTestData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai/settings/test';
+};
+
+export type PostApiAiSettingsTestResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: boolean;
+        model?: string;
+        error?: string;
+    };
+};
+
+export type PostApiAiSettingsTestResponse = PostApiAiSettingsTestResponses[keyof PostApiAiSettingsTestResponses];
+
+export type PostApiAiGenerateChannelData = {
+    body: {
+        prompt: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai/generate-channel';
+};
+
+export type PostApiAiGenerateChannelErrors = {
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiAiGenerateChannelError = PostApiAiGenerateChannelErrors[keyof PostApiAiGenerateChannelErrors];
+
+export type PostApiAiGenerateChannelResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        name: string;
+        number: number;
+        groupTitle: string;
+        programCount: number;
+        programUuids: Array<string>;
+        warnings: Array<string>;
+    };
+};
+
+export type PostApiAiGenerateChannelResponse = PostApiAiGenerateChannelResponses[keyof PostApiAiGenerateChannelResponses];
+
+export type PostApiAiApplyChannelData = {
+    body: {
+        prompt: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai/apply-channel';
+};
+
+export type PostApiAiApplyChannelErrors = {
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiAiApplyChannelError = PostApiAiApplyChannelErrors[keyof PostApiAiApplyChannelErrors];
+
+export type PostApiAiApplyChannelResponses = {
+    /**
+     * Default Response
+     */
+    201: {
+        disableFillerOverlay: boolean;
+        duration: number;
+        fallback?: Array<{
+            artistName?: string;
+            albumName?: string;
+            channel?: string;
+            customOrder?: number;
+            customShowId?: string;
+            customShowName?: string;
+            date?: string;
+            duration: number;
+            episode?: number;
+            episodeIcon?: string;
+            file?: string;
+            id: string;
+            icon?: string;
+            key?: string;
+            plexFile?: string;
+            rating?: string;
+            externalKey?: string;
+            season?: number;
+            seasonIcon?: string;
+            serverKey?: string;
+            showIcon?: string;
+            showTitle?: string;
+            sourceType: 'plex' | 'jellyfin' | 'emby' | 'local';
+            summary?: string;
+            title?: string;
+            type: 'movie' | 'episode' | 'track' | 'redirect' | 'custom' | 'flex';
+            year?: number;
+        }>;
+        fillerCollections?: Array<{
+            id: string;
+            weight: number;
+            cooldownSeconds: number;
+        }>;
+        fillerRepeatCooldown?: number;
+        groupTitle: string;
+        guideFlexTitle?: string;
+        guideMinimumDuration: number;
+        icon: {
+            path: string;
+            width: number;
+            duration: number;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+        };
+        id: string;
+        name: string;
+        number: number;
+        offline: {
+            picture?: string;
+            soundtrack?: string;
+            mode: 'pic' | 'clip';
+        };
+        startTime: number;
+        stealth: boolean;
+        transcoding?: {
+            targetResolution?: {
+                widthPx: number;
+                heightPx: number;
+            };
+            videoBitrate?: number;
+            videoBufferSize?: number;
+        };
+        watermark?: {
+            url?: string;
+            enabled: boolean;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            width: number;
+            verticalMargin: number;
+            horizontalMargin: number;
+            duration: number;
+            fixedSize?: boolean;
+            animated?: boolean;
+            opacity: number;
+            fadeConfig?: Array<{
+                programType?: 'movie' | 'episode' | 'track' | 'music_video' | 'other_video';
+                periodMins: number;
+                leadingEdge?: boolean;
+            }>;
+        };
+        onDemand: {
+            enabled: boolean;
+        };
+        programCount: number;
+        streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
+        transcodeConfigId: string;
+        sessions?: Array<{
+            type: ('hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat') | string | 'hls~480p_concat_fire';
+            state: string;
+            numConnections: number;
+            connections: Array<{
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+            }>;
+        }>;
+        subtitlesEnabled: boolean;
+        subtitlePreferences?: Array<{
+            langugeCode: string;
+            priority: number;
+            allowImageBased: boolean;
+            allowExternal: boolean;
+            filter: 'none' | 'forced' | 'default' | 'any';
+        }>;
+    };
+};
+
+export type PostApiAiApplyChannelResponse = PostApiAiApplyChannelResponses[keyof PostApiAiApplyChannelResponses];
+
+export type PostApiAiRefreshChannelData = {
+    body: {
+        channelId: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai/refresh-channel';
+};
+
+export type PostApiAiRefreshChannelErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiAiRefreshChannelError = PostApiAiRefreshChannelErrors[keyof PostApiAiRefreshChannelErrors];
+
+export type PostApiAiRefreshChannelResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        newProgramUuids: Array<string>;
+        warnings: Array<string>;
+    };
+};
+
+export type PostApiAiRefreshChannelResponse = PostApiAiRefreshChannelResponses[keyof PostApiAiRefreshChannelResponses];
+
+export type PostApiAiAddProgramsData = {
+    body: {
+        channelId: string;
+        prompt: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai/add-programs';
+};
+
+export type PostApiAiAddProgramsErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiAiAddProgramsError = PostApiAiAddProgramsErrors[keyof PostApiAiAddProgramsErrors];
+
+export type PostApiAiAddProgramsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        newProgramUuids: Array<string>;
+        warnings: Array<string>;
+    };
+};
+
+export type PostApiAiAddProgramsResponse = PostApiAiAddProgramsResponses[keyof PostApiAiAddProgramsResponses];
+
+export type PostApiAiChatData = {
+    body: {
+        messages: Array<{
+            role: 'user' | 'assistant' | 'system';
+            content: string;
+        }>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai/chat';
+};
+
+export type PostApiAiChatErrors = {
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiAiChatError = PostApiAiChatErrors[keyof PostApiAiChatErrors];
+
+export type PostApiAiChatResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        message: string;
+    };
+};
+
+export type PostApiAiChatResponse = PostApiAiChatResponses[keyof PostApiAiChatResponses];
+
+export type GetApiAiChannelByChannelIdPromptData = {
+    body?: never;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/ai/channel/{channelId}/prompt';
+};
+
+export type GetApiAiChannelByChannelIdPromptErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+};
+
+export type GetApiAiChannelByChannelIdPromptError = GetApiAiChannelByChannelIdPromptErrors[keyof GetApiAiChannelByChannelIdPromptErrors];
+
+export type GetApiAiChannelByChannelIdPromptResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        prompt: string | null;
+    };
+};
+
+export type GetApiAiChannelByChannelIdPromptResponse = GetApiAiChannelByChannelIdPromptResponses[keyof GetApiAiChannelByChannelIdPromptResponses];
+
+export type PutApiAiChannelByChannelIdPromptData = {
+    body: {
+        prompt: string | null;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/ai/channel/{channelId}/prompt';
+};
+
+export type PutApiAiChannelByChannelIdPromptErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+};
+
+export type PutApiAiChannelByChannelIdPromptError = PutApiAiChannelByChannelIdPromptErrors[keyof PutApiAiChannelByChannelIdPromptErrors];
+
+export type PutApiAiChannelByChannelIdPromptResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        prompt: string | null;
+    };
+};
+
+export type PutApiAiChannelByChannelIdPromptResponse = PutApiAiChannelByChannelIdPromptResponses[keyof PutApiAiChannelByChannelIdPromptResponses];
+
+export type GetApiAiRecommendationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai/recommendations';
+};
+
+export type GetApiAiRecommendationsErrors = {
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type GetApiAiRecommendationsError = GetApiAiRecommendationsErrors[keyof GetApiAiRecommendationsErrors];
+
+export type GetApiAiRecommendationsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        recommendations: Array<{
+            type: 'new-channel' | 'schedule-improvement' | 'content-addition' | 'gap-analysis';
+            title: string;
+            description: string;
+            actionPrompt: string;
+            targetChannel?: number | null;
+            items?: Array<string>;
+        }>;
+    };
+};
+
+export type GetApiAiRecommendationsResponse = GetApiAiRecommendationsResponses[keyof GetApiAiRecommendationsResponses];
+
+export type GetApiBumpersPacksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/bumpers/packs';
+};
+
+export type GetApiBumpersPacksResponses = {
+    /**
+     * Default Response
+     */
+    200: Array<{
+        id: string;
+        name: string;
+        directory: string;
+        mediaSourceUuid: string;
+        files: Array<{
+            filename: string;
+            path: string;
+            durationMs: number;
+            programUuid: string;
+        }>;
+        createdAt: string;
+        updatedAt: string;
+    }>;
+};
+
+export type GetApiBumpersPacksResponse = GetApiBumpersPacksResponses[keyof GetApiBumpersPacksResponses];
+
+export type PostApiBumpersPacksData = {
+    body: {
+        name: string;
+        directory: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/bumpers/packs';
+};
+
+export type PostApiBumpersPacksErrors = {
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiBumpersPacksError = PostApiBumpersPacksErrors[keyof PostApiBumpersPacksErrors];
+
+export type PostApiBumpersPacksResponses = {
+    /**
+     * Default Response
+     */
+    201: {
+        id: string;
+        name: string;
+        directory: string;
+        mediaSourceUuid: string;
+        files: Array<{
+            filename: string;
+            path: string;
+            durationMs: number;
+            programUuid: string;
+        }>;
+        createdAt: string;
+        updatedAt: string;
+    };
+};
+
+export type PostApiBumpersPacksResponse = PostApiBumpersPacksResponses[keyof PostApiBumpersPacksResponses];
+
+export type DeleteApiBumpersPacksByPackIdData = {
+    body?: never;
+    path: {
+        packId: string;
+    };
+    query?: never;
+    url: '/api/bumpers/packs/{packId}';
+};
+
+export type DeleteApiBumpersPacksByPackIdErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+};
+
+export type DeleteApiBumpersPacksByPackIdError = DeleteApiBumpersPacksByPackIdErrors[keyof DeleteApiBumpersPacksByPackIdErrors];
+
+export type DeleteApiBumpersPacksByPackIdResponses = {
+    /**
+     * Default Response
+     */
+    204: unknown;
+};
+
+export type GetApiBumpersPacksByPackIdData = {
+    body?: never;
+    path: {
+        packId: string;
+    };
+    query?: never;
+    url: '/api/bumpers/packs/{packId}';
+};
+
+export type GetApiBumpersPacksByPackIdErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+};
+
+export type GetApiBumpersPacksByPackIdError = GetApiBumpersPacksByPackIdErrors[keyof GetApiBumpersPacksByPackIdErrors];
+
+export type GetApiBumpersPacksByPackIdResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        id: string;
+        name: string;
+        directory: string;
+        mediaSourceUuid: string;
+        files: Array<{
+            filename: string;
+            path: string;
+            durationMs: number;
+            programUuid: string;
+        }>;
+        createdAt: string;
+        updatedAt: string;
+    };
+};
+
+export type GetApiBumpersPacksByPackIdResponse = GetApiBumpersPacksByPackIdResponses[keyof GetApiBumpersPacksByPackIdResponses];
+
+export type PostApiBumpersPacksByPackIdRescanData = {
+    body?: never;
+    path: {
+        packId: string;
+    };
+    query?: never;
+    url: '/api/bumpers/packs/{packId}/rescan';
+};
+
+export type PostApiBumpersPacksByPackIdRescanErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: string;
+    };
+    /**
+     * Default Response
+     */
+    500: {
+        error: string;
+    };
+};
+
+export type PostApiBumpersPacksByPackIdRescanError = PostApiBumpersPacksByPackIdRescanErrors[keyof PostApiBumpersPacksByPackIdRescanErrors];
+
+export type PostApiBumpersPacksByPackIdRescanResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        id: string;
+        name: string;
+        directory: string;
+        mediaSourceUuid: string;
+        files: Array<{
+            filename: string;
+            path: string;
+            durationMs: number;
+            programUuid: string;
+        }>;
+        createdAt: string;
+        updatedAt: string;
+    };
+};
+
+export type PostApiBumpersPacksByPackIdRescanResponse = PostApiBumpersPacksByPackIdRescanResponses[keyof PostApiBumpersPacksByPackIdRescanResponses];
+
 export type GetApiVersionData = {
     body?: never;
     path?: never;
@@ -20283,6 +21168,8 @@ export type GetStreamChannelsByIdTsData = {
     };
     query?: {
         streamMode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
+        quality?: 'high' | 'low' | 'fire';
+        size?: 'pip' | 'full';
         token?: string;
         audioOnly?: boolean | 'true' | 'false' | number;
     };
@@ -20303,6 +21190,7 @@ export type GetStreamChannelsByIdM3U8Data = {
     };
     query?: {
         mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
+        profile?: '480p' | '720p' | '1080p';
     };
     url: '/stream/channels/{id}.m3u8';
 };
@@ -20321,6 +21209,7 @@ export type HeadStreamChannelsByIdM3U8Data = {
     };
     query?: {
         mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct';
+        profile?: '480p' | '720p' | '1080p';
     };
     url: '/stream/channels/{id}.m3u8';
 };
