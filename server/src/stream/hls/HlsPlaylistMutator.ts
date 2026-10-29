@@ -28,6 +28,12 @@ export class HlsPlaylistMutator {
       playlistLines,
       maxSegments,
       true,
+      undefined,
+      // This rewrites the on-disk playlist that the next program's ffmpeg
+      // appends to: drop only old segments, never the ones written ahead of
+      // the clock, or the next program reuses (overwrites) their numbers while
+      // viewers are still reading them.
+      true,
     );
   }
 
@@ -41,6 +47,7 @@ export class HlsPlaylistMutator {
     // slides with the clock instead of staying on the first segments while
     // the transcode runs ahead of real time.
     liveEdge?: Dayjs,
+    keepNewer: boolean = false,
   ): TrimPlaylistResult {
     const { items, discontinuitySeq } = this.parsePlaylist(
       start,
@@ -54,6 +61,7 @@ export class HlsPlaylistMutator {
       discontinuitySeq,
       maxSegments,
       liveEdge,
+      keepNewer,
     );
 
     return {
@@ -130,6 +138,7 @@ export class HlsPlaylistMutator {
     discontinuitySequence: number,
     maxSegments: number,
     liveEdge?: Dayjs,
+    keepNewer: boolean = false,
   ) {
     if (first(items)?.type === 'discontinuity') {
       discontinuitySequence++;
@@ -161,7 +170,9 @@ export class HlsPlaylistMutator {
       );
       allSegments =
         afterTimeFilter.length >= maxSegments
-          ? take(afterTimeFilter, maxSegments)
+          ? keepNewer
+            ? afterTimeFilter
+            : take(afterTimeFilter, maxSegments)
           : takeRight(allSegments, maxSegments);
     }
 
