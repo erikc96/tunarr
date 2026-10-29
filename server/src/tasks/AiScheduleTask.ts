@@ -13,6 +13,12 @@ import type { IProgramDB } from '../db/interfaces/IProgramDB.js';
 
 const BillingBackoffMs = 24 * 60 * 60 * 1000;
 
+// After two billing errors in a row the hourly run stops hitting the API for
+// a day instead of failing every hour. Module state, not instance fields: the
+// scheduler builds a new task for every run, so fields forgot the backoff.
+let billingFailures = 0;
+let billingBackoffUntil = 0;
+
 export function isBillingError(err: unknown) {
   const msg = err instanceof Error ? err.message : String(err);
   return /credit balance|billing|insufficient[_ ]quota|payment required/i.test(
@@ -28,11 +34,6 @@ export class AiScheduleTask extends SimpleTask {
 
   public ID = AiScheduleTask.ID;
 
-  // After two billing errors in a row the hourly run stops hitting the API
-  // for a day instead of failing every hour.
-  #billingFailures = 0;
-  #billingBackoffUntil = 0;
-
   constructor(
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
     @inject(KEYS.ProgramDB) private programDB: IProgramDB,
@@ -44,7 +45,7 @@ export class AiScheduleTask extends SimpleTask {
   }
 
   protected async runInternal(): Promise<void> {
-    if (Date.now() < this.#billingBackoffUntil) {
+    if (Date.now() < billingBackoffUntil) {
       this.logger.debug('AI scheduling backing off after billing errors');
       return;
     }
@@ -99,14 +100,14 @@ export class AiScheduleTask extends SimpleTask {
           ...aiConfig,
           lastScheduled: now,
         });
-        this.#billingFailures = 0;
+        billingFailures = 0;
       } catch (err) {
         this.logger.error(
           err,
           `Failed to AI-schedule channel "${channel.name}"`,
         );
-        if (isBillingError(err) && ++this.#billingFailures >= 2) {
-          this.#billingBackoffUntil = Date.now() + BillingBackoffMs;
+        if (isBillingError(err) && ++billingFailures >= 2) {
+          billingBackoffUntil = Date.now() + BillingBackoffMs;
           this.logger.warn(
             'AI provider billing error twice; pausing AI scheduling for 24 h',
           );

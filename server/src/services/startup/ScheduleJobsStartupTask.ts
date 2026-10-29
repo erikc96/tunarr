@@ -82,7 +82,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       new ScheduledTask(
         ScheduleDynamicChannelsTask,
         // Temporary
-        hoursCrontab(1),
+        hoursCrontab(1, 7),
         container.get<interfaces.AutoFactory<ScheduleDynamicChannelsTask>>(
           ScheduleDynamicChannelsTask.KEY,
         ),
@@ -98,7 +98,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       SubtitleExtractorTask.ID,
       new ScheduledTask(
         SubtitleExtractorTask,
-        hoursCrontab(1),
+        hoursCrontab(1, 22),
         container.get<interfaces.AutoFactory<SubtitleExtractorTask>>(
           autoFactoryKey(SubtitleExtractorTask),
         ),
@@ -113,7 +113,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       RefreshMediaSourceLibraryTask.ID,
       new ScheduledTask(
         RefreshMediaSourceLibraryTask,
-        hoursCrontab(1),
+        hoursCrontab(1, 37),
         () =>
           container.get<RefreshMediaSourceLibraryTask>(
             RefreshMediaSourceLibraryTask,
@@ -126,7 +126,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       AiScheduleTask.ID,
       new ScheduledTask(
         AiScheduleTask,
-        hoursCrontab(1),
+        hoursCrontab(1, 52),
         container.get<interfaces.AutoFactory<AiScheduleTask>>(
           AiScheduleTask.KEY,
         ),
@@ -140,6 +140,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
         ScanLibrariesTask,
         hoursCrontab(
           this.settingsDB.globalMediaSourceSettings().rescanIntervalHours,
+          45,
         ),
         container.get<interfaces.AutoFactory<ScanLibrariesTask>>(
           ScanLibrariesTask.KEY,

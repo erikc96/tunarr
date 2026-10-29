@@ -188,8 +188,10 @@ export function scheduleBackupJobs(
   );
 }
 
-export function hoursCrontab(hours: number): string {
-  return `0 0 */${hours} * * *`;
+// `minute` staggers jobs that share an interval, so they don't all hit the
+// event loop at :00 (each run stalled live streams for a few seconds).
+export function hoursCrontab(hours: number, minute: number = 0): string {
+  return `0 ${minute} */${hours} * * *`;
 }
 
 export function minutesCrontab(mins: number): string {

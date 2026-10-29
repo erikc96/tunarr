@@ -42,11 +42,13 @@ describe('AiScheduleTask billing backoff', () => {
   });
 
   test('stops calling the API after two billing errors', async () => {
-    const { task, generate } = makeTask();
-    await task.run(undefined as never);
-    await task.run(undefined as never);
-    await task.run(undefined as never);
-    await task.run(undefined as never);
-    expect(generate).toHaveBeenCalledTimes(2);
+    // The scheduler builds a new task for every run, so the backoff has to
+    // outlive the instance.
+    const runs = Array.from({ length: 4 }, () => makeTask());
+    for (const { task } of runs) {
+      await task.run(undefined as never);
+    }
+    const calls = runs.reduce((n, r) => n + r.generate.mock.calls.length, 0);
+    expect(calls).toBe(2);
   });
 });
