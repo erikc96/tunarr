@@ -7,8 +7,9 @@ describe('fanOut', () => {
     const source = new PassThrough();
     const slow = new PassThrough({ highWaterMark: 16 });
     const fast = new PassThrough();
-    fanOut(source, slow, 100);
-    fanOut(source, fast, 100);
+    const drops: number[] = [];
+    fanOut(source, slow, 100, (n) => drops.push(n));
+    fanOut(source, fast, 100, (n) => drops.push(n));
     const got: Buffer[] = [];
     fast.on('data', (c: Buffer) => got.push(c));
 
@@ -17,6 +18,9 @@ describe('fanOut', () => {
     }
     expect(slow.destroyed).toBe(true);
     expect(fast.destroyed).toBe(false);
+    // Only the slow viewer is reported, once, with how far behind it was.
+    expect(drops).toHaveLength(1);
+    expect(drops[0]).toBeGreaterThan(100);
     expect(Buffer.concat(got).length).toBe(1000);
   });
 

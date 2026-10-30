@@ -229,14 +229,25 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       // TODO: We could probably record periodic heartbeats by listening
       // to the data event on this piped stream. Just debounce them!
       const piped = new PassThrough({ allowHalfOpen: false });
+      const openedAt = Date.now();
       // Not pipe(): that pauses the raw stream for every viewer while the
       // slowest one drains. A viewer that falls ~8 MB behind is dropped.
-      fanOut(session.rawStream, piped);
+      // Logged at info: a drop means the path to the viewer stopped draining
+      // (not the transcode), and that is otherwise invisible in the logs.
+      fanOut(session.rawStream, piped, undefined, (bufferedBytes) => {
+        logger.info(
+          { token, ip: req.ip, channel: req.params.id, bufferedBytes },
+          'Concat viewer dropped: %d bytes unsent after %d s',
+          bufferedBytes,
+          Math.round((Date.now() - openedAt) / 1000),
+        );
+      });
 
       piped.on('close', () => {
-        logger.debug(
+        logger.info(
           { token, ip: req.ip, channel: req.params.id },
-          'Concat request closed.',
+          'Concat request closed after %d s.',
+          Math.round((Date.now() - openedAt) / 1000),
         );
 
         session.removeConnection(token);
