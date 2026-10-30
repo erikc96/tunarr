@@ -127,6 +127,15 @@ export class TVGuideService {
   private eventService: EventService;
   private programConverter: ProgramConverter;
   private cachedGuide: Record<ChannelId, ChannelPrograms>;
+  // DB programs behind each channel's cached guide, loaded when that channel's
+  // guide is built. writeXmlTv reuses them, so writing the XMLTV file runs no
+  // queries. Re-querying every channel on every write blocked the event loop
+  // for seconds: better-sqlite3 is synchronous, so ~90 relational queries ran
+  // back to back without yielding.
+  private cachedGuidePrograms: Record<
+    ChannelId,
+    Record<string, ProgramWithRelationsOrm>
+  > = {};
 
   private lastUpdateTime: Record<string, number>;
   private lastEndTime: Record<string, number>;
@@ -343,6 +352,7 @@ export class TVGuideService {
    */
   async removeCachedChannel(channelId: string) {
     delete this.cachedGuide[channelId];
+    delete this.cachedGuidePrograms[channelId];
     delete this.lastUpdateTime[channelId];
     delete this.lastEndTime[channelId];
     delete this.currentUpdateTime[channelId];
@@ -398,6 +408,7 @@ export class TVGuideService {
       for (const channelId of Object.keys(this.cachedGuide)) {
         if (!this.channelsById[channelId]) {
           delete this.cachedGuide[channelId];
+          delete this.cachedGuidePrograms[channelId];
         }
       }
 
@@ -975,8 +986,10 @@ export class TVGuideService {
           await this.timer.timeAsync(
             `Built Channel ${channelId} TV Guide for ${dur}`,
             async () => {
-              this.cachedGuide[channelId] =
-                await this.buildGuideInternal(channelId);
+              const guide = await this.buildGuideInternal(channelId);
+              this.cachedGuidePrograms[channelId] =
+                await this.getAllCurrentGuidePrograms(guide.programs);
+              this.cachedGuide[channelId] = guide;
               if (
                 writeXmlTv &&
                 !this.channelsById[channelId]!.channel.stealth
@@ -1003,11 +1016,13 @@ export class TVGuideService {
 
   private async writeXmlTv() {
     const allProgramsById: Record<string, ProgramWithRelationsOrm> = {};
-    for (const { programs } of Object.values(this.cachedGuide)) {
-      const programsById = await this.getAllCurrentGuidePrograms(programs);
-      for (const [id, program] of Object.entries(programsById)) {
-        allProgramsById[id] = program;
-      }
+    for (const [channelId, { programs }] of Object.entries(this.cachedGuide)) {
+      // Only a channel whose build failed before its programs loaded lacks
+      // an entry; query that one rather than write it without metadata.
+      const programsById =
+        this.cachedGuidePrograms[channelId] ??
+        (await this.getAllCurrentGuidePrograms(programs));
+      Object.assign(allProgramsById, programsById);
     }
 
     const materializedGuide = Object.values(this.cachedGuide).map(
