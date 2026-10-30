@@ -24,7 +24,7 @@ function fake<T>(impl: object): T {
 const SHOW_MS = 10 * 60 * 1000;
 const BUMP_MS = 15_000;
 
-function setup(bumpInPack: boolean) {
+function setup(bumpInPack: boolean, splitShowA = false) {
   const showA = v4();
   const bump = v4();
   const bumperIds = bumpInPack ? [bump] : [];
@@ -59,7 +59,14 @@ function setup(bumpInPack: boolean) {
     items: [
       { type: 'content', id: showA, durationMs: SHOW_MS },
       { type: 'content', id: bump, durationMs: BUMP_MS },
-      { type: 'content', id: showB, durationMs: SHOW_MS },
+      splitShowA
+        ? {
+            type: 'content',
+            id: showA,
+            durationMs: SHOW_MS,
+            startOffsetMs: SHOW_MS,
+          }
+        : { type: 'content', id: showB, durationMs: SHOW_MS },
     ],
     startTimeOffsets: [0, SHOW_MS, SHOW_MS + BUMP_MS],
   };
@@ -138,6 +145,19 @@ describe('TVGuideService bumpers', () => {
     expect(programs[0]?.durationMs).toBeGreaterThanOrEqual(SHOW_MS + BUMP_MS);
     expect(programs.some((p) => p.durationMs === BUMP_MS)).toBe(false);
     expect(programs.some((p) => p.isBumper)).toBe(false);
+  });
+
+  it('lists the parts of a split episode as separate entries at exact times', async () => {
+    const { service, write } = setup(true, true);
+    await service.buildAllChannels(dayjs.duration({ hours: 1 }), true);
+    const programs = await guideFor(write);
+
+    expect(programs.slice(0, 3).map((p) => p.durationMs)).toEqual([
+      SHOW_MS,
+      BUMP_MS,
+      SHOW_MS,
+    ]);
+    expect(programs[2]?.start).toBe(programs[0]!.start + SHOW_MS + BUMP_MS);
   });
 
   it('isProgramOffline: a flagged bumper is never stealth', () => {

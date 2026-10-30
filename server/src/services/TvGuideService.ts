@@ -719,6 +719,7 @@ export class TVGuideService {
       if (
         programs.length > 0 &&
         !isNil(previousProgram) &&
+        !isSegment(currentProgram) &&
         isProgramOffline(currentProgram, channelWithLineup.channel) &&
         (currentProgram.durationMs <=
           constants.TVGUIDE_MAXIMUM_PADDING_LENGTH_MS ||
@@ -772,7 +773,10 @@ export class TVGuideService {
         } else {
           programs[previousProgramIndex] = meldedProgram;
         }
-      } else if (isProgramOffline(currentProgram, channelWithLineup.channel)) {
+      } else if (
+        !isSegment(currentProgram) &&
+        isProgramOffline(currentProgram, channelWithLineup.channel)
+      ) {
         melded = 0;
         programs.push({
           ...program,
@@ -1172,6 +1176,10 @@ export class TVGuideService {
         guideItem.lineupItem.isBumper
           ? { isBumper: true }
           : {}),
+        ...(guideItem.lineupItem.type === 'content' &&
+        guideItem.lineupItem.startOffsetMs
+          ? { startOffsetMs: guideItem.lineupItem.startOffsetMs }
+          : {}),
       }))
       .with({ type: 'redirect' }, (redirect) => ({
         ...baseItem,
@@ -1352,6 +1360,11 @@ export class TVGuideService {
       ],
     };
   }
+}
+
+// A lineup item that airs part of a program (a split episode). Never melded.
+function isSegment(item: DeepReadonly<LineupItem>): boolean {
+  return item.type === 'content' && isDefined(item.startOffsetMs);
 }
 
 function markBumper(item: GuideItem, bumperIds: Set<string>): GuideItem {

@@ -37,6 +37,7 @@ export type ProgramAndTimeElapsed = {
   program: StreamLineupItem;
   timeElapsed: number;
   programIndex: number;
+  segmentStartMs?: number;
 };
 
 // Taking advantage of structural typing for transition
@@ -361,6 +362,9 @@ export class StreamProgramCalculator {
       program,
       timeElapsed,
       programIndex: currentProgramIndex,
+      ...(lineupItem.type === 'content' && lineupItem.startOffsetMs
+        ? { segmentStartMs: lineupItem.startOffsetMs }
+        : {}),
     };
   }
 
@@ -370,7 +374,12 @@ export class StreamProgramCalculator {
   // 2b. If no fillter content is found, then pad with more offline time
   // 3. Return the currently playing "real" program
   async createLineupItem(
-    { program, timeElapsed, programIndex }: ProgramAndTimeElapsed,
+    {
+      program,
+      timeElapsed,
+      programIndex,
+      segmentStartMs,
+    }: ProgramAndTimeElapsed,
     streamDuration: number,
     channel: ChannelOrm,
     schedulingOperations: SchedulingOperation[] = [],
@@ -498,7 +507,17 @@ export class StreamProgramCalculator {
     if (program.type === 'commercial') {
       return {
         ...program,
-        startOffset: timeElapsed,
+        startOffset: (segmentStartMs ?? 0) + timeElapsed,
+        streamDuration,
+      };
+    }
+
+    if (segmentStartMs && segmentStartMs > 0) {
+      return {
+        ...program,
+        type: 'program',
+        startOffset: segmentStartMs + timeElapsed,
+        duration: segmentStartMs + program.duration,
         streamDuration,
       };
     }

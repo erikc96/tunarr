@@ -24,6 +24,7 @@ export const ContentLineupItemSchema = z
     fillerType: FillerType.optional(),
     // True when this item was inserted by InsertBumpersOperator
     isBumper: z.boolean().optional(),
+    startOffsetMs: z.number().nonnegative().optional(),
   })
   .merge(BaseLineupItemSchema);
 

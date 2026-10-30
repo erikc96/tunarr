@@ -49,6 +49,7 @@ import {
 import type stream from 'node:stream';
 import z from 'zod/v4';
 import { container } from '../container.ts';
+import { ActBreakAnalyzer } from '../services/actBreaks/ActBreakAnalyzer.ts';
 import { programSourceTypeFromString } from '../db/custom_types/ProgramSourceType.ts';
 import {
   AllProgramFields,
@@ -103,6 +104,40 @@ export const programmingApi: RouterPluginAsyncCallback = async (fastify) => {
     caller: import.meta,
     className: 'ProgrammingApi',
   });
+
+  fastify.post(
+    '/programs/act-breaks',
+    {
+      schema: {
+        body: z.object({ programIds: z.array(z.string()).min(1).max(500) }),
+        response: {
+          200: z.object({
+            results: z.record(
+              z.string(),
+              z.object({
+                status: z.enum(['ready', 'pending', 'failed']),
+                durationMs: z.number().optional(),
+                chaptersMs: z.array(z.number()).optional(),
+                strongMs: z.array(z.number()).optional(),
+                weakMs: z.array(z.number()).optional(),
+                error: z.string().optional(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const analyzer = container.get(ActBreakAnalyzer);
+      const results: Record<
+        string,
+        Awaited<ReturnType<ActBreakAnalyzer['get']>>
+      > = {};
+      for (const id of req.body.programIds)
+        results[id] = await analyzer.get(id);
+      return { results };
+    },
+  );
 
   fastify.post(
     '/programs/search',

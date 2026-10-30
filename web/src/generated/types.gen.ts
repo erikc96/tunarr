@@ -4139,6 +4139,7 @@ export type PostApiChannelsByIdProgrammingData = {
             programId: string;
             customShowId?: string;
             duration: number;
+            startOffset?: number;
         }>;
         append?: boolean;
     } | {
@@ -5228,6 +5229,7 @@ export type GetApiChannelsAllLineupsResponses = {
             isPaused: boolean;
             timeRemaining?: number;
             isBumper?: boolean;
+            startOffsetMs?: number;
         } | {
             type: 'custom';
             persisted: boolean;
@@ -5626,6 +5628,7 @@ export type GetApiChannelsByIdLineupResponses = {
             isPaused: boolean;
             timeRemaining?: number;
             isBumper?: boolean;
+            startOffsetMs?: number;
         } | {
             type: 'custom';
             persisted: boolean;
@@ -6010,6 +6013,7 @@ export type GetApiChannelsByIdNowPlayingResponses = {
         isPaused: boolean;
         timeRemaining?: number;
         isBumper?: boolean;
+        startOffsetMs?: number;
     } | {
         type: 'custom';
         persisted: boolean;
@@ -11096,6 +11100,35 @@ export type GetApiFillerListsByIdProgramsResponses = {
 
 export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgramsResponses[keyof GetApiFillerListsByIdProgramsResponses];
 
+export type PostApiProgramsActBreaksData = {
+    body: {
+        programIds: Array<string>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/programs/act-breaks';
+};
+
+export type PostApiProgramsActBreaksResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        results: {
+            [key: string]: {
+                status: 'ready' | 'pending' | 'failed';
+                durationMs?: number;
+                chaptersMs?: Array<number>;
+                strongMs?: Array<number>;
+                weakMs?: Array<number>;
+                error?: string;
+            };
+        };
+    };
+};
+
+export type PostApiProgramsActBreaksResponse = PostApiProgramsActBreaksResponses[keyof PostApiProgramsActBreaksResponses];
+
 export type PostApiProgramsSearchData = {
     body: {
         query: {
@@ -13609,6 +13642,7 @@ export type GetApiDebugHelpersBuildGuideResponses = {
             isPaused: boolean;
             timeRemaining?: number;
             isBumper?: boolean;
+            startOffsetMs?: number;
         } | {
             type: 'custom';
             persisted: boolean;
@@ -16518,6 +16552,7 @@ export type GetApiGuideChannelsResponses = {
                 isPaused: boolean;
                 timeRemaining?: number;
                 isBumper?: boolean;
+                startOffsetMs?: number;
             } | {
                 type: 'custom';
                 persisted: boolean;

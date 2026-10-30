@@ -45,6 +45,7 @@ import { SystemDevicesService } from './services/SystemDevicesService.ts';
 import { TunarrWorkerPool } from './services/TunarrWorkerPool.ts';
 import { AiModule } from './services/ai/AiModule.ts';
 import { BumperModule } from './services/bumpers/BumperModule.ts';
+import { ActBreakModule } from './services/actBreaks/ActBreakModule.ts';
 import { DynamicChannelsModule } from './services/dynamic_channels/DynamicChannelsModule.ts';
 import { TimeSlotSchedulerService } from './services/scheduling/TimeSlotSchedulerService.ts';
 import { ChannelLineupMigratorStartupTask } from './services/startup/ChannelLineupMigratorStartupTask.ts';
@@ -186,5 +187,6 @@ container.load(ServicesModule);
 container.load(ExternalApiModule);
 container.load(AiModule);
 container.load(BumperModule);
+container.load(ActBreakModule);
 
 export { container };

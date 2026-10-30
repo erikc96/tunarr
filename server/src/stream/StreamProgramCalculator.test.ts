@@ -5,7 +5,11 @@ import { now, sum, sumBy } from 'lodash-es';
 import { DeepPartial } from 'ts-essentials';
 import { instance, mock, verify, when } from 'ts-mockito';
 import { test as baseTest } from 'vitest';
-import { Lineup, LineupItem } from '../db/derived_types/Lineup.ts';
+import {
+  Lineup,
+  LineupItem,
+  LineupSchema,
+} from '../db/derived_types/Lineup.ts';
 import { StreamLineupItem } from '../db/derived_types/StreamLineup.ts';
 import { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import { IFillerListDB } from '../db/interfaces/IFillerListDB.ts';
@@ -402,5 +406,122 @@ describe('StreamProgramCalculator', () => {
       );
       expect(streamDuration).toEqual(3000);
     });
+  });
+});
+
+describe('StreamProgramCalculator lineup segments', () => {
+  baseTest('a segment item seeks to its offset plus time elapsed', async () => {
+    const fillerDB = mock<IFillerListDB>();
+    const channelDB = mock<IChannelDB>();
+    const programDB = mock<IProgramDB>();
+    const fillerPicker = mock<IFillerPicker>();
+    const channelCache = mock<IStreamLineupCache>();
+
+    const startTime = dayjs(new Date(2025, 8, 17, 8));
+    const channelId = faker.string.uuid();
+    const episodeId = faker.string.uuid();
+    const spotId = faker.string.uuid();
+
+    // Episode split at 10:00 with a 1-min spot between the two parts.
+    const lineup: LineupItem[] = [
+      { type: 'content', durationMs: 600_000, id: episodeId },
+      { type: 'content', durationMs: 60_000, id: spotId },
+      {
+        type: 'content',
+        durationMs: 300_000,
+        id: episodeId,
+        startOffsetMs: 600_000,
+      },
+      { type: 'content', durationMs: 60_000, id: spotId },
+    ];
+
+    for (const [id, duration] of [
+      [episodeId, 900_000],
+      [spotId, 60_000],
+    ] as const) {
+      when(programDB.getProgramForStream(id)).thenReturn(
+        Promise.resolve(
+          createFakeProgram({
+            uuid: id,
+            duration,
+            mediaSourceId: tag<MediaSourceId>('mediasource-123'),
+          }),
+        ),
+      );
+    }
+
+    // Tune in 100 s into the second part.
+    const channel = createChannelOrm({
+      uuid: channelId,
+      number: 1,
+      startTime: +startTime - (660_000 + 100_000),
+      duration: sumBy(lineup, ({ durationMs }) => durationMs),
+    });
+    when(channelDB.getChannelOrm(1)).thenReturn(Promise.resolve(channel));
+    when(channelDB.loadLineup(channelId)).thenReturn(
+      Promise.resolve({
+        version: 1,
+        items: lineup,
+        startTimeOffsets: calculateStartTimeOffsets(lineup),
+        lastUpdated: now(),
+      }),
+    );
+
+    const calc = new StreamProgramCalculator(
+      LoggerFactory.root,
+      instance(fillerDB),
+      instance(channelDB),
+      instance(channelCache),
+      instance(programDB),
+      instance(fillerPicker),
+    );
+
+    const segment = (
+      await calc.getCurrentLineupItem({
+        allowSkip: false,
+        channelId: 1,
+        startTime: +startTime,
+      })
+    ).get();
+    expect(segment.lineupItem).toMatchObject<DeepPartial<StreamLineupItem>>({
+      type: 'program',
+      program: { uuid: episodeId },
+      startOffset: 700_000,
+      streamDuration: 200_000,
+      duration: 900_000,
+      programBeginMs: +startTime - 100_000,
+    });
+
+    // The first part is not a segment: it starts at the file's beginning.
+    const first = (
+      await calc.getCurrentLineupItem({
+        allowSkip: false,
+        channelId: 1,
+        startTime: +startTime - 660_000,
+      })
+    ).get();
+    expect(first.lineupItem).toMatchObject<DeepPartial<StreamLineupItem>>({
+      program: { uuid: episodeId },
+      startOffset: 100_000,
+      streamDuration: 500_000,
+      duration: 600_000,
+    });
+  });
+
+  baseTest('a saved lineup keeps segment offsets', () => {
+    const parsed = LineupSchema.parse({
+      version: 1,
+      items: [
+        {
+          type: 'content',
+          id: 'p',
+          durationMs: 300_000,
+          startOffsetMs: 600_000,
+        },
+      ],
+      startTimeOffsets: [0],
+      lastUpdated: 0,
+    });
+    expect(parsed.items[0]).toMatchObject({ startOffsetMs: 600_000 });
   });
 });

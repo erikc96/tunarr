@@ -23,6 +23,7 @@ export const ContentGuideProgramSchema = ContentProgramSchema.required({
   .extend({
     // A program from a bumper pack, listed as its own guide entry.
     isBumper: z.boolean().optional(),
+    startOffsetMs: z.number().nonnegative().optional(),
   });
 
 export const CustomGuideProgramSchema = CustomProgramSchema.merge(

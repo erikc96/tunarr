@@ -139,6 +139,7 @@ const PersistedLineupItemSchema = z.object({
   // a bit easier. Eventually we'll do a big lookup and use the
   // saved durations from the DB.
   duration: z.number().positive().max(3.156e10),
+  startOffset: z.number().nonnegative().optional(),
 });
 
 const UpdateLineupItemSchema = z.union([

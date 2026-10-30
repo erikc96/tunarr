@@ -1337,6 +1337,9 @@ export class ChannelDB implements IChannelDB {
                     id: lineupItem.programId,
                     customShowId: lineupItem.customShowId,
                     durationMs: lineupItem.duration,
+                    ...(lineupItem.startOffset
+                      ? { startOffsetMs: lineupItem.startOffset }
+                      : {}),
                   } satisfies ContentItem;
                 }
               }
