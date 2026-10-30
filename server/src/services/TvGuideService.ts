@@ -22,7 +22,8 @@ import {
 } from '@tunarr/types';
 import retry from 'async-retry';
 import { Duration } from 'dayjs/plugin/duration.js';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, optional } from 'inversify';
+import { BumperDB } from './bumpers/BumperDB.ts';
 import { Kysely } from 'kysely';
 import {
   compact,
@@ -150,6 +151,9 @@ export class TVGuideService {
     @inject(KEYS.Database) private db: Kysely<DB>,
     @inject(OnDemandChannelService)
     private onDemandChannelService: OnDemandChannelService,
+    @optional()
+    @inject(BumperDB)
+    private bumperDB?: BumperDB,
   ) {
     this.timer = new Timer(this.logger);
     this.cachedGuide = {};
@@ -684,7 +688,14 @@ export class TVGuideService {
 
     let melded = 0;
 
-    const push = (program: GuideItem) => {
+    // Programs from a bumper pack are their own guide entries. Without this a
+    // 15 s bump is shorter than guideMinimumDuration, counts as offline and is
+    // melded into the previous show, so now_playing shows that show's
+    // metadata for the whole bump.
+    const bumperIds = await this.bumperProgramIds();
+
+    const push = (incoming: GuideItem) => {
+      const program = markBumper(incoming, bumperIds);
       const currentProgram = program.lineupItem;
       const previousProgramIndex =
         !isUndefined(program.index) &&
@@ -925,6 +936,18 @@ export class TVGuideService {
     return result;
   }
 
+  private async bumperProgramIds(): Promise<Set<string>> {
+    if (!this.bumperDB) {
+      return new Set();
+    }
+    const packs = await this.bumperDB.getPacks();
+    return new Set(
+      packs.flatMap((pack) =>
+        seq.collect(pack.files, (file) => file.programUuid),
+      ),
+    );
+  }
+
   private async buildGuideInternal(
     channelId: string,
   ): Promise<ChannelPrograms> {
@@ -1130,6 +1153,10 @@ export class TVGuideService {
         ...baseItem,
         ...content,
         type: 'content',
+        ...(guideItem.lineupItem.type === 'content' &&
+        guideItem.lineupItem.isBumper
+          ? { isBumper: true }
+          : {}),
       }))
       .with({ type: 'redirect' }, (redirect) => ({
         ...baseItem,
@@ -1220,6 +1247,7 @@ export class TVGuideService {
           ...baseItem,
           title,
           programming,
+          ...(content.isBumper ? { isBumper: true } : {}),
         };
       })
       .with({ type: 'offline' }, () => {
@@ -1311,10 +1339,26 @@ export class TVGuideService {
   }
 }
 
-function isProgramOffline(
-  program: Maybe<LineupItem>,
-  channel: ChannelOrm,
+function markBumper(item: GuideItem, bumperIds: Set<string>): GuideItem {
+  const lineupItem = item.lineupItem;
+  if (
+    lineupItem.type !== 'content' ||
+    lineupItem.isBumper ||
+    !bumperIds.has(lineupItem.id)
+  ) {
+    return item;
+  }
+  return { ...item, lineupItem: { ...lineupItem, isBumper: true } };
+}
+
+export function isProgramOffline(
+  program: Maybe<DeepReadonly<LineupItem>>,
+  channel: Pick<ChannelOrm, 'guideMinimumDuration'>,
 ): boolean {
+  // A bumper is never stealth: it gets its own guide entry however short.
+  if (program?.type === 'content' && program.isBumper) {
+    return false;
+  }
   return (
     !isUndefined(program) &&
     (program.type === 'offline' ||

@@ -162,6 +162,10 @@ export class XmlTvWriter {
       partial.subTitle = [{ _value: escape(subTitle) }];
     }
 
+    if (guideItem.isBumper) {
+      partial.category = [{ _value: 'Filler' }];
+    }
+
     if (guideItem.programming.type === 'program') {
       const program = guideItem.programming.program;
       if (program.type !== 'movie' && title !== guideItem.title) {

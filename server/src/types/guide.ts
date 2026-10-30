@@ -23,5 +23,7 @@ export type MaterializedGuideItem = {
   timeRemaining?: number;
   durationMs: number;
   title?: string;
+  // A bumper-pack program: its own entry, tagged Filler in XMLTV.
+  isBumper?: boolean;
   programming: ProgramGuideItem | FlexGuideItem | RedirectGuideItem;
 };

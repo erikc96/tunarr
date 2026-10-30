@@ -18,7 +18,12 @@ const BaseGuideProgramSchema = z.object({
 
 export const ContentGuideProgramSchema = ContentProgramSchema.required({
   id: true,
-}).extend(BaseGuideProgramSchema.shape);
+})
+  .extend(BaseGuideProgramSchema.shape)
+  .extend({
+    // A program from a bumper pack, listed as its own guide entry.
+    isBumper: z.boolean().optional(),
+  });
 
 export const CustomGuideProgramSchema = CustomProgramSchema.merge(
   BaseGuideProgramSchema,
