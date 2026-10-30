@@ -5227,6 +5227,7 @@ export type GetApiChannelsAllLineupsResponses = {
             stop: number;
             isPaused: boolean;
             timeRemaining?: number;
+            isBumper?: boolean;
         } | {
             type: 'custom';
             persisted: boolean;
@@ -5624,6 +5625,7 @@ export type GetApiChannelsByIdLineupResponses = {
             stop: number;
             isPaused: boolean;
             timeRemaining?: number;
+            isBumper?: boolean;
         } | {
             type: 'custom';
             persisted: boolean;
@@ -6007,6 +6009,7 @@ export type GetApiChannelsByIdNowPlayingResponses = {
         stop: number;
         isPaused: boolean;
         timeRemaining?: number;
+        isBumper?: boolean;
     } | {
         type: 'custom';
         persisted: boolean;
@@ -13605,6 +13608,7 @@ export type GetApiDebugHelpersBuildGuideResponses = {
             stop: number;
             isPaused: boolean;
             timeRemaining?: number;
+            isBumper?: boolean;
         } | {
             type: 'custom';
             persisted: boolean;
@@ -16513,6 +16517,7 @@ export type GetApiGuideChannelsResponses = {
                 stop: number;
                 isPaused: boolean;
                 timeRemaining?: number;
+                isBumper?: boolean;
             } | {
                 type: 'custom';
                 persisted: boolean;
