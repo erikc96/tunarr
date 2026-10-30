@@ -102,9 +102,16 @@ export function deriveActBreakCandidates(
   };
 }
 
+// Analyses run side by side; each is ~20 threads under nice 19, so 3 stays far
+// below the box's 2000-thread cap.
+const CONCURRENCY = Math.max(
+  1,
+  Number(process.env.TUNARR_ACT_BREAK_CONCURRENCY ?? 3) || 1,
+);
+
 @injectable()
 export class ActBreakAnalyzer {
-  private running = false;
+  private running = 0;
   private readonly queued = new Set<string>();
   private readonly queue: string[] = [];
 
@@ -153,12 +160,11 @@ export class ActBreakAnalyzer {
     if (!this.queued.has(id)) {
       this.queued.add(id);
       this.queue.push(id);
-      void this.drain();
+      if (this.running < CONCURRENCY) void this.drain();
     }
   }
   private async drain() {
-    if (this.running) return;
-    this.running = true;
+    this.running++;
     while (this.queue.length) {
       const id = this.queue.shift()!;
       this.queued.delete(id);
@@ -173,7 +179,7 @@ export class ActBreakAnalyzer {
         ),
       );
     }
-    this.running = false;
+    this.running--;
   }
 
   private async analyze(programId: string) {
@@ -210,6 +216,10 @@ export class ActBreakAnalyzer {
         '-nostats',
         '-threads',
         '2',
+        // Skipping non-reference frames halves decode time; at 5 fps the
+        // black detection is unchanged.
+        '-skip_frame:v',
+        'noref',
         '-i',
         filePath,
         '-map',
