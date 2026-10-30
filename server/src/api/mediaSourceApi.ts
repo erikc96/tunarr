@@ -765,9 +765,7 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
 
         // Regenerate guides
         try {
-          GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
-            .runNow(true)
-            .catch(console.error);
+          GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID).runSoon();
         } catch (e) {
           logger.error(e, 'Unable to update guide after lineup update %O');
         }

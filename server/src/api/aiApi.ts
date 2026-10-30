@@ -237,9 +237,7 @@ export const aiApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           ],
         );
 
-        GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
-          .runNow(true)
-          .catch((err) => logger.error(err, 'Error regenerating guide'));
+        GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID).runSoon();
         await req.serverCtx.m3uService.regenerateCache();
 
         const channelAndLineup =
@@ -248,7 +246,9 @@ export const aiApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           );
 
         if (!channelAndLineup) {
-          return res.status(500).send({ error: 'Channel created but failed to reload' });
+          return res
+            .status(500)
+            .send({ error: 'Channel created but failed to reload' });
         }
 
         return res.status(201).send(dbChannelToApiChannel(channelAndLineup));

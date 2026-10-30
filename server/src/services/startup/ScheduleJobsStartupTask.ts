@@ -41,7 +41,9 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       UpdateXmlTvTask.ID,
       new ScheduledTask(
         UpdateXmlTvTask,
-        hoursCrontab(xmlTvSettings.refreshHours),
+        // :30 is clear of the other hourly jobs (7, 22, 37, 45, 52) and of the
+        // media czar's lineup rebuilds at :00 on the mini.
+        hoursCrontab(xmlTvSettings.refreshHours, 30),
         container.get<interfaces.AutoFactory<UpdateXmlTvTask>>(
           KEYS.UpdateXmlTvTaskFactory,
         ),

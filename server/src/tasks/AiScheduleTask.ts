@@ -166,10 +166,6 @@ export class AiScheduleTask extends SimpleTask {
       `AI replenished channel "${channelName}" with ${lineupItems.length} programs`,
     );
 
-    GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
-      .runNow(true)
-      .catch((err) =>
-        this.logger.error(err, 'Error regenerating guide after AI schedule'),
-      );
+    GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID).runSoon();
   }
 }

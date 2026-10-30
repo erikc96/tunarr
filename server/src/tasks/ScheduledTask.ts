@@ -55,6 +55,10 @@ export class ScheduledTask<
   public visible: boolean = true;
   public lastExecution?: Date;
 
+  #soonTimer?: ReturnType<typeof setTimeout>;
+  #soonDelayMs = 0;
+  #soonAgain = false;
+
   constructor(
     jobConstructor: TaskConstructor<TaskInputSchemaT, OutputT> | string,
     scheduleRule: ScheduleRule,
@@ -131,6 +135,29 @@ export class ScheduledTask<
     }
   }
 
+  // Coalesces a burst of triggers into one background run `delayMs` after the
+  // first. Several lineup saves in a row (the media czar rebuilds 2-4 channels
+  // at :00) each asked for a full guide rebuild, and every rebuild stalls live
+  // streams for a few seconds. A trigger that lands while a run is going gets
+  // exactly one more run after it, so the last change is never missed.
+  runSoon(delayMs: number = 10_000) {
+    this.#soonDelayMs = delayMs;
+    if (this.running) {
+      this.#soonAgain = true;
+      return;
+    }
+    if (this.#soonTimer) {
+      return;
+    }
+    this.#soonTimer = setTimeout(() => {
+      this.#soonTimer = undefined;
+      this.runNow(true).catch((e) =>
+        this.logger.error(e, 'Error while running job %s', this.name),
+      );
+    }, delayMs);
+    this.#soonTimer.unref?.();
+  }
+
   cancel(reschedule: boolean = false) {
     this.scheduledJob.cancel(reschedule);
   }
@@ -156,6 +183,10 @@ export class ScheduledTask<
     } finally {
       this.running = false;
       this.lastExecution = new Date();
+      if (this.#soonAgain) {
+        this.#soonAgain = false;
+        this.runSoon(this.#soonDelayMs);
+      }
     }
   }
 }

@@ -246,9 +246,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       //   return res.status(500).send(inserted);
       // }
 
-      GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
-        .runNow(true)
-        .catch((err) => logger.error(err, 'Error regenerating guide'));
+      GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID).runSoon();
       await req.serverCtx.m3uService.regenerateCache();
 
       return res.status(201).send(dbChannelToApiChannel(inserted));
@@ -529,9 +527,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       try {
-        GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
-          .runNow(true)
-          .catch((err) => logger.error(err, 'Error regenerating guide'));
+        GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID).runSoon();
       } catch (e) {
         logger.error(e, 'Unable to update guide after lineup update');
       }
