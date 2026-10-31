@@ -6,7 +6,6 @@ import {
   type VideoStream,
 } from '@/ffmpeg/builder/MediaStream.js';
 import type { FfmpegCapabilities } from '@/ffmpeg/builder/capabilities/FfmpegCapabilities.js';
-import { Av1Decoder } from '@/ffmpeg/builder/decoder/Av1Decoder.js';
 import type { Decoder } from '@/ffmpeg/builder/decoder/Decoder.js';
 import { H264Decoder } from '@/ffmpeg/builder/decoder/H264Decoder.js';
 import { HevcDecoder } from '@/ffmpeg/builder/decoder/HevcDecoder.js';
@@ -747,17 +746,11 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
         .with(VideoFormats.Mpeg2Video, () => new Mpeg2Decoder())
         .with(VideoFormats.Mpeg4, () => new Mpeg4Decoder())
         .with(VideoFormats.Raw, () => new RawVideoDecoder())
-        .with(
-          VideoFormats.Av1,
-          () => this.ffmpegCapabilities.hasVideoEncoder('libdav1d'),
-          () => new Av1Decoder('libdav1d'),
-        )
-        .with(
-          VideoFormats.Av1,
-          () => this.ffmpegCapabilities.hasVideoEncoder('libaom-av1'),
-          () => new Av1Decoder('libaom-av1'),
-        )
-        .with(VideoFormats.Av1, () => new Av1Decoder('av1'))
+        // AV1 falls through to ffmpeg's own pick: it prefers libdav1d. Forcing
+        // `-c:v av1` selects the hwaccel-only native decoder, which fails in
+        // software ("Your platform doesn't support hardware accelerated AV1
+        // decoding"), and capabilities only list encoders so libdav1d was
+        // never detected.
         .otherwise(() => new ImplicitDecoder());
       this.videoInputSource.addOption(decoder);
     }
