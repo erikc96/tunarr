@@ -50,6 +50,23 @@ export const ChannelTsQuerySchema = z.object({
   size: z.enum(['pip', 'full']).optional(),
   token: z.uuid().optional(),
   audioOnly: TruthyQueryParam.optional().default(false),
+  probe: z.literal('1').optional(),
+});
+
+const isSmallProbeRange = (range: string | undefined) => {
+  const match = /^bytes=0-(\d+)$/i.exec(range ?? '');
+  return match !== null && Number(match[1]) <= 1_000_000;
+};
+
+const probeConnection = (req: FastifyRequest) => ({
+  ip: req.ip,
+  userAgent: req.headers['user-agent'],
+  probe:
+    req.query &&
+    typeof req.query === 'object' &&
+    'probe' in req.query &&
+    (req.query as { probe?: string }).probe === '1' ||
+    isSmallProbeRange(req.headers.range),
 });
 
 export function concatSessionTypeForQuality(
@@ -176,10 +193,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         await req.serverCtx.sessionManager.getOrCreateConcatSession(
           channel.uuid,
           token,
-          {
-            ip: req.ip,
-            userAgent: req.headers['user-agent'],
-          },
+          probeConnection(req),
           {
             audioOnly: req.query.audioOnly,
             sessionType: concatSessionTypeForQuality(
@@ -202,8 +216,8 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
             const e = sessionResult.error as BusyError;
             return res
               .status(503)
-              .header('Retry-After', '5')
-              .send({ busy: true, active: e.active, cap: e.cap });
+              .header('Retry-After', e.reason === 'probe-reserve' ? '30' : '5')
+              .send({ busy: true, active: e.active, cap: e.cap, ...(e.reason ? { reason: e.reason } : {}) });
           })
           .with('transcode_config_not_found', () =>
             res.status(404).send('Transcode config not found'),
@@ -390,12 +404,12 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       querystring: z.object({
         mode: ChannelStreamModeSchema.optional(),
         profile: z.enum(QualityProfileNames).optional(),
+        probe: z.literal('1').optional(),
       }),
     },
     handler: async (req, res) => {
       const connectionDetails: StreamConnectionDetails = {
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
+        ...probeConnection(req),
       };
 
       let channel: Maybe<Channel>;
@@ -495,10 +509,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
 
       if (sessionResult.isFailure()) {
         if (sessionResult.error instanceof BusyError) {
-          return res.status(503).header('Retry-After', '5').send({
+          return res.status(503).header('Retry-After', sessionResult.error.reason === 'probe-reserve' ? '30' : '5').send({
             busy: true,
             active: sessionResult.error.active,
             cap: sessionResult.error.cap,
+            ...(sessionResult.error.reason ? { reason: sessionResult.error.reason } : {}),
           });
         }
         logger.error(sessionResult.error);

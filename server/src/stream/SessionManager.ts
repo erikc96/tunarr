@@ -36,6 +36,7 @@ import {
   QualityProfileName,
   sessionWeight,
   transcodeCap,
+  viewerReserve,
 } from './qualityProfiles.js';
 import {
   HlsSession,
@@ -74,6 +75,7 @@ export class SessionManager {
   // A wrapper's transcode is started a moment later by the wrapper's own
   // ffmpeg; its budget is held from admission until then.
   #reserved = new Map<SessionKey, { weight: number; at: number }>();
+  #probeRejected = 0;
 
   constructor(
     @inject(KEYS.Logger) private logger: Logger,
@@ -487,6 +489,14 @@ export class SessionManager {
     );
   }
 
+  viewerReserve() {
+    return viewerReserve();
+  }
+
+  probeRejected() {
+    return this.#probeRejected;
+  }
+
   // Throws BusyError when starting this session would pass the transcode
   // budget, after evicting idle lingering sessions (oldest first).
   private admit(
@@ -558,6 +568,20 @@ export class SessionManager {
       evictIdle();
     }
     const active = this.activeWeight();
+    const probeClass =
+      (connection as StreamConnectionDetails & { probe?: boolean }).probe === true ||
+      /^(?:curl\/|wget\/|python-|Go-http-client)/i.test(
+        connection.userAgent ?? '',
+      );
+    const reserve = viewerReserve();
+    if (probeClass && reserve > 0 && active + cost > cap - reserve) {
+      this.#probeRejected++;
+      this.logger.info(
+        { channelId, sessionType, active, cap, reserve },
+        'Rejected probe-class stream to preserve viewer reserve',
+      );
+      throw new BusyError(active, cap, 'probe-reserve');
+    }
     if (active + cost > cap) {
       throw new BusyError(active, cap);
     }

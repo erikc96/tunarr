@@ -62,6 +62,8 @@ export const debugHealthApiRouter: RouterPluginAsyncCallback = async (
       activeWeight: req.serverCtx.sessionManager.activeWeight(),
       reservedWeight: req.serverCtx.sessionManager.reservedWeight(),
       cap: transcodeCap(),
+      viewerReserve: req.serverCtx.sessionManager.viewerReserve(),
+      probeRejected: req.serverCtx.sessionManager.probeRejected(),
       ffmpegProcs,
       userThreads: threads,
       sessionCount: sessions.length,

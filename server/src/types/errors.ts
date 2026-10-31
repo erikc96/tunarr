@@ -93,6 +93,7 @@ export class BusyError extends TypedError {
   constructor(
     readonly active: number,
     readonly cap: number,
+    readonly reason?: 'probe-reserve',
   ) {
     super(`Transcode capacity is full (${active} of ${cap})`);
   }

@@ -295,6 +295,7 @@ export const EmbyLoginRequest = z.object({
 export const StreamConnectionDetailsSchema = z.object({
   ip: z.ipv4().or(z.ipv6()),
   userAgent: z.string().optional(),
+  probe: z.boolean().optional(),
   lastHeartbeat: z.number().nonnegative().optional(),
 });
 

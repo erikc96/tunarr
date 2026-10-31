@@ -48,6 +48,12 @@ Recommendation: B for `480p` and `720p`, with `1080p` being the current `hls` se
 - The check runs under the existing per-channel lock, plus one small global mutex around the counter so two channels cannot both take the last slot.
 - `/api/debug/streams` gains `activeWeight` and `cap`, so the health cron can watch it.
 
+### Viewer reserve for probe traffic
+
+Probe-like requests must not consume the last transcode capacity needed by real viewers. `TUNARR_VIEWER_RESERVE` is a numeric reserve in transcode-weight units, defaulting to `2`. A request is probe-class when its user agent is empty or one of the common command-line clients (`curl`, `wget`, `python`, or `Go-http-client`), or when it has `?probe=1`, or a byte range beginning at zero with an end no greater than 1 MB. Internal `Lavf`/`Tunarr` requests and browsers/players remain normal viewers.
+
+Probe-class requests may join an existing session. When they would start one, admission requires `activeWeight + reservedWeight + newWeight <= cap - reserve`; otherwise the request receives the existing busy body with `reason: "probe-reserve"`, `Retry-After: 30`, and the rejection is counted in `/api/debug/streams`. `TUNARR_VIEWER_RESERVE=0` disables this guard. Normal viewers retain the existing cap behavior.
+
 ## Admin page
 
 A new route `web/src/routes/settings/devices`, in the Settings menu.

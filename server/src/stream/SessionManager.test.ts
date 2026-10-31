@@ -46,7 +46,7 @@ class FakeSession extends EventEmitter {
 }
 
 function setup(maxLingering = 0) {
-  const logger = { debug: vi.fn(), error: vi.fn() };
+  const logger = { debug: vi.fn(), error: vi.fn(), info: vi.fn() };
   const settings = {
     ffmpegSettings: () => ({
       idleSessionLingerSeconds: 600,
@@ -81,7 +81,7 @@ function setup(maxLingering = 0) {
   return { mgr, sessions };
 }
 
-const conn = { userAgent: 'x', ip: '1' } as never;
+const conn = { userAgent: 'x', ip: '1' };
 
 describe('concatWrapperTypes', () => {
   test('lists plain, low and fire wrappers', () => {
@@ -224,6 +224,73 @@ describe('weighted admission cap', () => {
       });
       expect(next.isSuccess()).toBe(true);
       expect(sessions['hls']!.stop).toHaveBeenCalled();
+    }));
+
+  test('rejects a probe near the cap', () =>
+    withCap('2', async () => {
+      process.env['TUNARR_VIEWER_RESERVE'] = '1';
+      try {
+        const { mgr } = setup(0);
+        await mgr.getOrCreateHlsSession('c1', 'a', conn);
+        const result = await mgr.getOrCreateHlsSession('c2', 'probe', {
+          ...conn,
+          userAgent: 'curl/8.7.1',
+        });
+        expect(result.isFailure() && result.error.type).toBe('busy');
+        expect(result.isFailure() && (result.error as { reason?: string }).reason).toBe('probe-reserve');
+        expect(mgr.probeRejected()).toBe(1);
+      } finally {
+        delete process.env['TUNARR_VIEWER_RESERVE'];
+      }
+    }));
+
+  test('allows a probe with headroom', () =>
+    withCap('4', async () => {
+      const { mgr } = setup(0);
+      await mgr.getOrCreateHlsSession('c1', 'a', conn);
+      const result = await mgr.getOrCreateHlsSession('c2', 'probe', {
+        ...conn,
+        userAgent: 'curl/8.7.1',
+      });
+      expect(result.isSuccess()).toBe(true);
+    }));
+
+  test('allows a probe to join an existing session', () =>
+    withCap('1', async () => {
+      const { mgr } = setup(0);
+      await mgr.getOrCreateHlsSession('c1', 'a', conn);
+      const result = await mgr.getOrCreateConcatSession('c1', 'probe', {
+        ...conn,
+        userAgent: 'curl/8.7.1',
+      }, { sessionType: 'hls_concat' } as never);
+      expect(result.isSuccess()).toBe(true);
+    }));
+
+  test('admits a normal viewer at the reserved boundary', () =>
+    withCap('2', async () => {
+      const { mgr } = setup(0);
+      await mgr.getOrCreateHlsSession('c1', 'a', conn);
+      const result = await mgr.getOrCreateHlsSession('c2', 'viewer', {
+        ...conn,
+        userAgent: 'Mozilla/5.0',
+      });
+      expect(result.isSuccess()).toBe(true);
+    }));
+
+  test('reserve zero disables the probe guard', () =>
+    withCap('1', async () => {
+      process.env['TUNARR_VIEWER_RESERVE'] = '0';
+      try {
+        const { mgr } = setup(0);
+        await mgr.getOrCreateHlsSession('c1', 'a', conn);
+        const result = await mgr.getOrCreateHlsSession('c2', 'probe', {
+          ...conn,
+          userAgent: 'curl/8.7.1',
+        });
+        expect(result.isFailure() && (result.error as { reason?: string }).reason).toBeUndefined();
+      } finally {
+        delete process.env['TUNARR_VIEWER_RESERVE'];
+      }
     }));
 });
 

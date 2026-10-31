@@ -128,3 +128,9 @@ export function transcodeCap(): number {
   const n = Number(process.env['TUNARR_MAX_TRANSCODE_WEIGHT']);
   return Number.isFinite(n) && n > 0 ? n : 16;
 }
+
+/** Weight reserved for real viewers when admitting probe-class requests. */
+export function viewerReserve(): number {
+  const n = Number(process.env['TUNARR_VIEWER_RESERVE']);
+  return Number.isFinite(n) && n >= 0 ? n : 2;
+}
