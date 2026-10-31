@@ -155,7 +155,12 @@ export class PlexProgramStream extends ProgramStream {
     const transcodeSession = await ffmpeg.createStreamSession({
       stream: {
         source: effectiveSource,
-        details: stream.streamDetails,
+        // A bumper concat has no stable subtitle stream index: the first
+        // entry may be a bumper, so burning in [0:N] fails the whole filtergraph.
+        details:
+          effectiveSource instanceof LocalConcatStreamSource
+            ? { ...stream.streamDetails, subtitleDetails: undefined }
+            : stream.streamDetails,
       },
       options: {
         startTime:

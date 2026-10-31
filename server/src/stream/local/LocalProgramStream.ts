@@ -158,7 +158,12 @@ export class LocalProgramStream extends ProgramStream {
     const ffmpegOutStream = await ffmpeg.createStreamSession({
       stream: {
         source: effectiveSource,
-        details,
+        // A bumper concat has no stable subtitle stream index: the first
+        // entry may be a bumper, so burning in [0:N] fails the whole filtergraph.
+        details:
+          effectiveSource instanceof LocalConcatStreamSource
+            ? { ...details, subtitleDetails: undefined }
+            : details,
       },
       options: {
         // For concat sources the seek is handled inside the concat file;
