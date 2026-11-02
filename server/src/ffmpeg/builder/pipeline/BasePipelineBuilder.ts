@@ -32,6 +32,7 @@ import { HlsOutputFormat } from '@/ffmpeg/builder/options/HlsOutputFormat.js';
 import { LogLevelOption } from '@/ffmpeg/builder/options/LogLevelOption.js';
 import { NoStatsOption } from '@/ffmpeg/builder/options/NoStatsOption.js';
 import { ConcatHttpReconnectOptions } from '@/ffmpeg/builder/options/input/ConcatHttpReconnectOptions.js';
+import { HlsLiveStartIndexOption } from '@/ffmpeg/builder/options/input/HlsLiveStartIndexOption.js';
 import { ConcatInputFormatOption } from '@/ffmpeg/builder/options/input/ConcatInputFormatOption.js';
 import { HttpReconnectOptions } from '@/ffmpeg/builder/options/input/HttpReconnectOptions.js';
 import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/InfiniteLoopInputOption.js';
@@ -327,10 +328,15 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       input.addOption(new ConcatHttpReconnectOptions());
     }
 
-    // Burst the first seconds so a new viewer gets a keyframe right away. The re-encoded Fire/low profiles burst
-    // 30 s so the player has lead and doesn't rebuffer at every hiccup.
+    // Burst the first seconds so a new viewer gets a keyframe right away. The Fire profile starts 10 segments
+    // (about 20 s) behind the live edge and bursts 20 s, so the player has a cushion and doesn't stutter when
+    // delivery over its link comes in lumps (measured 2026-11-01: a 4 s burst left about 5 s of lead).
+    const fire = options?.quality === 'fire';
+    if (fire && input.protocol === 'http') {
+      input.addOption(new HlsLiveStartIndexOption(10));
+    }
     input.addOption(
-      new ReadrateInputOption(this.ffmpegCapabilities, 4),
+      new ReadrateInputOption(this.ffmpegCapabilities, fire ? 20 : 4),
     );
     if (state.metadataServiceName) {
       pipelineSteps.push(
