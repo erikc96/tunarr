@@ -53,9 +53,13 @@ class Connection {
     this.sqlite.pragma('synchronous = NORMAL');
     // Use RAM for temporary operations (temp tables, sorting)
     this.sqlite.pragma('temp_store = MEMORY');
-    // Keeps 10k DB pages in RAM; adds about 40MB of memory overhead.
-    this.sqlite.pragma('cache_size = 10000');
-    this.sqlite.pragma('mmap_size = 268435456');
+    // Keep the whole DB in SQLite's own page cache (heap, up to 256 MiB) and
+    // don't mmap it. With mmap, reads depend on the OS page cache; on a shared
+    // host that evicts our pages within an hour, so a guide query became a 13 s
+    // synchronous disk read on the main thread (craigotv-audio, 2026-11-09:
+    // 500 programs cold 3.3 s wall, 0.08 s CPU, ~100 MB read; warm 10 ms).
+    this.sqlite.pragma(`cache_size = -${256 * 1024}`);
+    this.sqlite.pragma('mmap_size = 0');
     this.sqlite.pragma('foreign_keys = ON');
 
     // Periodically checkpoint the WAL to prevent progressive query slowdown.
