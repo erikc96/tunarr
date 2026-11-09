@@ -3,7 +3,10 @@ import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
 import { transcodeCap } from '@/stream/qualityProfiles.js';
 import { loopP99Ms, startLoopMonitor } from '@/util/loopMonitor.js';
 import { execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { Session } from 'node:inspector/promises';
+import path from 'node:path';
+import { globalOptions } from '@/globals.js';
 import os from 'node:os';
 import { promisify } from 'node:util';
 
@@ -33,6 +36,42 @@ export const debugHealthApiRouter: RouterPluginAsyncCallback = async (
   // eslint-disable-next-line @typescript-eslint/require-await
 ) => {
   startLoopMonitor();
+
+  // Samples the main thread's JS for `secs` seconds (in-process inspector, no
+  // listening port) and writes <databaseDirectory>/profiles/<stamp>.cpuprofile.
+  // Used to name what blocks the event loop when perf is unavailable.
+  let profiling = false;
+  fastify.post('/cpuprofile', async (req, res) => {
+    const secs = Math.min(
+      120,
+      Math.max(1, Number((req.query as { secs?: string }).secs ?? 30)),
+    );
+    if (profiling) return res.status(409).send({ error: 'already profiling' });
+    profiling = true;
+    const session = new Session();
+    session.connect();
+    await session.post('Profiler.enable');
+    await session.post('Profiler.setSamplingInterval', { interval: 1000 });
+    await session.post('Profiler.start');
+    const dir = path.join(globalOptions().databaseDirectory, 'profiles');
+    const file = path.join(
+      dir,
+      `${new Date().toISOString().replace(/[:.]/g, '-')}.cpuprofile`,
+    );
+    setTimeout(() => {
+      void (async () => {
+        try {
+          const { profile } = await session.post('Profiler.stop');
+          await mkdir(dir, { recursive: true });
+          await writeFile(file, JSON.stringify(profile));
+        } finally {
+          session.disconnect();
+          profiling = false;
+        }
+      })();
+    }, secs * 1000);
+    return res.send({ file, secs });
+  });
 
   fastify.get('/streams', async (req, res) => {
     const user = os.userInfo().username;

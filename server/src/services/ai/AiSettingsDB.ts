@@ -47,6 +47,20 @@ export class AiSettingsDB {
     };
   }
 
+  // Epoch ms until which the AI scheduler skips its run after a billing
+  // error. Kept in the settings file so a Tunarr restart doesn't reset it.
+  async getBillingBackoffUntil(): Promise<number> {
+    const db = await this.getDb();
+    const v = (db.data as { billingBackoffUntil?: unknown }).billingBackoffUntil;
+    return typeof v === 'number' ? v : 0;
+  }
+
+  async setBillingBackoffUntil(until: number): Promise<void> {
+    const db = await this.getDb();
+    (db.data as { billingBackoffUntil?: number }).billingBackoffUntil = until;
+    await db.write();
+  }
+
   async update(data: Partial<AiSettings>): Promise<AiSettingsPublic> {
     const db = await this.getDb();
     if (typeof data.apiKey === 'string') db.data.apiKey = data.apiKey;

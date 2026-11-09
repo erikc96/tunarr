@@ -115,7 +115,10 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       RefreshMediaSourceLibraryTask.ID,
       new ScheduledTask(
         RefreshMediaSourceLibraryTask,
-        hoursCrontab(1, 37),
+        // Once a day at 11:37 UTC (small hours in California): the library
+        // list rarely changes, and an hourly run froze every stream for up to
+        // 11 s on a long-running process (craigotv-audio, 2026-11-09).
+        '0 37 11 * * *',
         () =>
           container.get<RefreshMediaSourceLibraryTask>(
             RefreshMediaSourceLibraryTask,
@@ -128,7 +131,9 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       AiScheduleTask.ID,
       new ScheduledTask(
         AiScheduleTask,
-        hoursCrontab(1, 52),
+        // Every 6 h: a channel is only refilled after 4 h anyway, and each
+        // run builds the library context on the main thread.
+        hoursCrontab(6, 52),
         container.get<interfaces.AutoFactory<AiScheduleTask>>(
           AiScheduleTask.KEY,
         ),

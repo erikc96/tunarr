@@ -2,7 +2,7 @@ import '@/services/startup/ScheduleJobsStartupTask.js';
 import { describe, expect, test, vi } from 'vitest';
 import { AiScheduleTask, isBillingError } from './AiScheduleTask.ts';
 
-function makeTask() {
+function makeTask(store: { until: number }) {
   const generate = vi.fn(() =>
     Promise.reject(new Error('Your credit balance is too low')),
   );
@@ -27,7 +27,14 @@ function makeTask() {
     channelDB as never,
     {} as never,
     { generate } as never,
-    { get: () => Promise.resolve({ apiKey: 'k' }) } as never,
+    {
+      get: () => Promise.resolve({ apiKey: 'k' }),
+      getBillingBackoffUntil: () => Promise.resolve(store.until),
+      setBillingBackoffUntil: (v: number) => {
+        store.until = v;
+        return Promise.resolve();
+      },
+    } as never,
     logger as never,
   );
   return { task, generate };
@@ -41,14 +48,16 @@ describe('AiScheduleTask billing backoff', () => {
     expect(isBillingError(new Error('socket hang up'))).toBe(false);
   });
 
-  test('stops calling the API after two billing errors', async () => {
-    // The scheduler builds a new task for every run, so the backoff has to
-    // outlive the instance.
-    const runs = Array.from({ length: 4 }, () => makeTask());
+  test('stops calling the API after one billing error', async () => {
+    // The scheduler builds a new task for every run, and Tunarr restarts, so
+    // the backoff lives in the settings store, not the instance.
+    const store = { until: 0 };
+    const runs = Array.from({ length: 4 }, () => makeTask(store));
     for (const { task } of runs) {
       await task.run(undefined as never);
     }
     const calls = runs.reduce((n, r) => n + r.generate.mock.calls.length, 0);
-    expect(calls).toBe(2);
+    expect(calls).toBe(1);
+    expect(store.until).toBeGreaterThan(Date.now());
   });
 });
