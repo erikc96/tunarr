@@ -301,7 +301,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       ...(quality
         ? [
             new Libx264Encoder(null, 'veryfast'),
-            new AudioEncoder('aac'),
+            // Copy the transcode's stereo AAC: a third lossy encode (source, transcode, this) made voices sound tinny.
+            new CopyAudioEncoder(),
             makeConstantOutputOption([
               '-vf',
               `scale=w=min(${quality.width}\\,iw):h=min(${quality.height}\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2`,
@@ -314,11 +315,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               'expr:gte(t,n_forced*1)',
               '-g:v',
               '30',
-              '-ac',
-              '2',
             ]),
             VideoBitrateOutputOption(quality.videoKbps),
-            AudioBitrateOutputOption(quality.audioKbps),
           ]
         : [new CopyAllEncoder()]),
     ];
