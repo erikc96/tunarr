@@ -4,6 +4,7 @@ import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { Mutex } from 'async-mutex';
 import Sqlite from 'better-sqlite3';
 import dayjs from 'dayjs';
+import { createReadStream, existsSync } from 'node:fs';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import {
   CamelCasePlugin,
@@ -61,6 +62,35 @@ class Connection {
     this.sqlite.pragma(`cache_size = -${256 * 1024}`);
     this.sqlite.pragma('mmap_size = 0');
     this.sqlite.pragma('foreign_keys = ON');
+
+    // Fill that cache once, 30 s after start: stream the file (async, so the
+    // OS has it without blocking the loop), then walk every page through
+    // dbstat (~0.15 s sync for a 115 MB DB). Otherwise each page is first read
+    // from disk inside whatever query touches it, on the main thread.
+    if (existsSync(name)) {
+      setTimeout(() => {
+        const t0 = Date.now();
+        createReadStream(name)
+          .on('data', () => {})
+          .on('error', () => {})
+          .on('close', () => {
+            try {
+              const t1 = Date.now();
+              const pages = this.sqlite
+                .prepare('select count(*) as n from dbstat')
+                .get() as { n: number };
+              this.logger.info(
+                'Warmed SQLite cache: %d pages (file read %d ms, dbstat %d ms)',
+                pages.n,
+                t1 - t0,
+                Date.now() - t1,
+              );
+            } catch (e) {
+              this.logger.warn(e, 'SQLite cache warm-up failed');
+            }
+          });
+      }, 30_000).unref();
+    }
 
     // Periodically checkpoint the WAL to prevent progressive query slowdown.
     // PASSIVE mode: checkpoints what it can without blocking active readers/writers.
