@@ -316,10 +316,6 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               '30',
               '-ac',
               '2',
-              // Fill or trim audio at timestamp jumps (program joins, a lingering session's restart) instead of leaving
-              // a hole in the PTS; every other re-encode path already does this.
-              '-af',
-              'aresample=async=1:min_hard_comp=0.1',
             ]),
             VideoBitrateOutputOption(quality.videoKbps),
             AudioBitrateOutputOption(quality.audioKbps),
